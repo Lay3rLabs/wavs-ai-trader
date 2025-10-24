@@ -7,11 +7,7 @@ use crate::state::{
     USER_SHARES, VAULT_ASSETS, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
 };
 
-pub fn execute_deposit(
-    deps: DepsMut,
-    _env: Env,
-    info: MessageInfo,
-) -> Result<Response, ContractError> {
+pub fn deposit(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
     // Validate payment using cw_utils helpers
     let coin = cw_utils::one_coin(&info)?;
 
@@ -46,7 +42,7 @@ pub fn execute_deposit(
     ))
 }
 
-pub fn execute_record_deposit(
+pub fn record_deposit(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
@@ -123,7 +119,7 @@ pub fn execute_record_deposit(
         .add_attribute("total_shares", total_shares.to_string()))
 }
 
-pub fn execute_withdraw(
+pub fn withdraw(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
@@ -221,7 +217,7 @@ pub fn execute_withdraw(
         .add_attribute("value_usd", user_value_usd.to_string()))
 }
 
-pub fn execute_update_price_oracle(
+pub fn update_price_oracle(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
@@ -241,7 +237,7 @@ pub fn execute_update_price_oracle(
         .add_attribute("new_oracle", price_oracle))
 }
 
-pub fn execute_add_to_whitelist(
+pub fn add_to_whitelist(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
@@ -259,7 +255,7 @@ pub fn execute_add_to_whitelist(
         .add_attribute("updated_by", info.sender))
 }
 
-pub fn execute_remove_from_whitelist(
+pub fn remove_from_whitelist(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,

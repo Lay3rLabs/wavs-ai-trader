@@ -61,20 +61,18 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Deposit {} => execute::execute_deposit(deps, env, info),
+        ExecuteMsg::Deposit {} => execute::deposit(deps, env, info),
         ExecuteMsg::RecordDeposit {
             deposit_id,
             value_usd,
-        } => execute::execute_record_deposit(deps, env, info, deposit_id, value_usd),
-        ExecuteMsg::Withdraw { shares } => execute::execute_withdraw(deps, env, info, shares),
+        } => execute::record_deposit(deps, env, info, deposit_id, value_usd),
+        ExecuteMsg::Withdraw { shares } => execute::withdraw(deps, env, info, shares),
         ExecuteMsg::UpdatePriceOracle { price_oracle } => {
-            execute::execute_update_price_oracle(deps, env, info, price_oracle)
+            execute::update_price_oracle(deps, env, info, price_oracle)
         }
-        ExecuteMsg::AddToWhitelist { tokens } => {
-            execute::execute_add_to_whitelist(deps, env, info, tokens)
-        }
+        ExecuteMsg::AddToWhitelist { tokens } => execute::add_to_whitelist(deps, env, info, tokens),
         ExecuteMsg::RemoveFromWhitelist { tokens } => {
-            execute::execute_remove_from_whitelist(deps, env, info, tokens)
+            execute::remove_from_whitelist(deps, env, info, tokens)
         }
     }
 }
@@ -95,29 +93,21 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetTotalShares {} => {
-            cosmwasm_std::to_json_binary(&query::query_total_shares(deps)?)
-        }
-        QueryMsg::GetPriceOracle {} => {
-            cosmwasm_std::to_json_binary(&query::query_price_oracle(deps)?)
-        }
-        QueryMsg::GetVaultValue {} => {
-            cosmwasm_std::to_json_binary(&query::query_vault_value(deps)?)
-        }
+        QueryMsg::GetTotalShares {} => cosmwasm_std::to_json_binary(&query::total_shares(deps)?),
+        QueryMsg::GetPriceOracle {} => cosmwasm_std::to_json_binary(&query::price_oracle(deps)?),
+        QueryMsg::GetVaultValue {} => cosmwasm_std::to_json_binary(&query::vault_value(deps)?),
         QueryMsg::GetWhitelistedDenoms {} => {
-            cosmwasm_std::to_json_binary(&query::query_whitelisted_denoms(deps)?)
+            cosmwasm_std::to_json_binary(&query::whitelisted_denoms(deps)?)
         }
         QueryMsg::GetDepositRequest { deposit_id } => {
-            cosmwasm_std::to_json_binary(&query::query_deposit_request(deps, deposit_id)?)
+            cosmwasm_std::to_json_binary(&query::deposit_request(deps, deposit_id)?)
         }
         QueryMsg::ListDepositRequests { start_after, limit } => {
-            cosmwasm_std::to_json_binary(&query::list_deposit_requests(deps, start_after, limit)?)
+            cosmwasm_std::to_json_binary(&query::deposit_requests(deps, start_after, limit)?)
         }
-        QueryMsg::GetVaultAssets {} => {
-            cosmwasm_std::to_json_binary(&query::query_vault_assets(deps)?)
-        }
+        QueryMsg::GetVaultAssets {} => cosmwasm_std::to_json_binary(&query::vault_assets(deps)?),
         QueryMsg::GetVaultAssetBalance { denom } => {
-            cosmwasm_std::to_json_binary(&query::query_vault_asset_balance(deps, denom)?)
+            cosmwasm_std::to_json_binary(&query::vault_asset_balance(deps, denom)?)
         }
     }
 }
