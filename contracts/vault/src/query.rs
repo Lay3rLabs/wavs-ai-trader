@@ -1,8 +1,8 @@
-use cosmwasm_std::{Coin, Deps, StdResult, Uint128};
+use cosmwasm_std::{Coin, Decimal, Deps, StdResult, Uint128};
 use cw_storage_plus::Bound;
 
 use crate::state::{
-    DepositRequest, DEPOSIT_REQUESTS, PRICE_ORACLE, TOTAL_SHARES, VAULT_ASSETS,
+    DepositRequest, DEPOSIT_REQUESTS, PRICES, PRICE_ORACLE, TOTAL_SHARES, VAULT_ASSETS,
     VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
 };
 
@@ -15,7 +15,7 @@ pub fn price_oracle(deps: Deps) -> StdResult<String> {
     Ok(price_oracle.into_string())
 }
 
-pub fn vault_value(deps: Deps) -> StdResult<Uint128> {
+pub fn vault_value(deps: Deps) -> StdResult<Decimal> {
     VAULT_VALUE_DEPOSITED.load(deps.storage)
 }
 
@@ -57,4 +57,8 @@ pub fn vault_asset_balance(deps: Deps, denom: String) -> StdResult<Uint128> {
     VAULT_ASSETS
         .load(deps.storage, denom)
         .or(Ok(Uint128::zero()))
+}
+
+pub fn price(deps: Deps, denom: String) -> StdResult<Decimal> {
+    PRICES.load(deps.storage, denom).or(Ok(Decimal::zero()))
 }

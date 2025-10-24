@@ -17,7 +17,7 @@ pub enum QueryMsg {
     GetTotalShares {},
     #[returns(String)]
     GetPriceOracle {},
-    #[returns(Uint128)]
+    #[returns(cosmwasm_std::Decimal)]
     GetVaultValue {},
     #[returns(Vec<String>)]
     GetWhitelistedDenoms {},
@@ -32,17 +32,33 @@ pub enum QueryMsg {
     GetVaultAssets {},
     #[returns(Uint128)]
     GetVaultAssetBalance { denom: String },
+    #[returns(cosmwasm_std::Decimal)]
+    GetPrice { denom: String },
 }
 
 #[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
     Deposit {},
-    RecordDeposit { deposit_id: u64, value_usd: Uint128 },
-    Withdraw { shares: Uint128 },
-    UpdatePriceOracle { price_oracle: String },
-    AddToWhitelist { tokens: Vec<String> },
-    RemoveFromWhitelist { tokens: Vec<String> },
+    Withdraw {
+        shares: Uint128,
+    },
+    UpdatePriceOracle {
+        price_oracle: String,
+    },
+    UpdateWhitelist {
+        to_add: Option<Vec<String>>,
+        to_remove: Option<Vec<String>>,
+    },
+    UpdatePrices {
+        prices: Vec<PriceUpdate>,
+    },
+}
+
+#[cw_serde]
+pub struct PriceUpdate {
+    pub denom: String,
+    pub price_usd: cosmwasm_std::Decimal, // Price as USD decimal (e.g., 1234.56)
 }
 
 #[cw_serde]

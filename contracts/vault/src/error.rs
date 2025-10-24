@@ -1,4 +1,4 @@
-use cosmwasm_std::StdError;
+use cosmwasm_std::{CheckedFromRatioError, DecimalRangeExceeded, OverflowError, StdError};
 use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use thiserror::Error;
@@ -13,6 +13,15 @@ pub enum ContractError {
 
     #[error("Ownership error: {0}")]
     Ownership(#[from] OwnershipError),
+
+    #[error("{0}")]
+    Overflow(#[from] OverflowError),
+
+    #[error("{0}")]
+    DecimalRangeExceeded(#[from] DecimalRangeExceeded),
+
+    #[error("{0}")]
+    CheckedFromRatioError(#[from] CheckedFromRatioError),
 
     #[error("Unauthorized")]
     Unauthorized {},
