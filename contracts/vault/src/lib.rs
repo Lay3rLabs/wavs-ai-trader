@@ -1,6 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult};
+use cosmwasm_std::{
+    to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+};
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
@@ -28,7 +30,8 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     // Initialize ownership using cw_ownable
-    cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
+    let ownership =
+        cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
 
     // Set initial total shares to zero
     TOTAL_SHARES.save(deps.storage, &cosmwasm_std::Uint128::zero())?;
@@ -50,7 +53,7 @@ pub fn instantiate(
 
     Ok(Response::new()
         .add_attribute("method", "instantiate")
-        .add_attribute("owner", info.sender))
+        .add_attributes(ownership.into_attributes()))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -74,6 +77,12 @@ pub fn execute(
         ExecuteMsg::RemoveFromWhitelist { tokens } => {
             execute::remove_from_whitelist(deps, env, info, tokens)
         }
+        ExecuteMsg::UpdateOwnership(action) => {
+            let ownership =
+                cw_ownable::update_ownership(deps, &env.block, &info.sender, action.clone())?;
+
+            Ok(Response::new().add_attributes(ownership.into_attributes()))
+        }
     }
 }
 
@@ -93,21 +102,20 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetTotalShares {} => cosmwasm_std::to_json_binary(&query::total_shares(deps)?),
-        QueryMsg::GetPriceOracle {} => cosmwasm_std::to_json_binary(&query::price_oracle(deps)?),
-        QueryMsg::GetVaultValue {} => cosmwasm_std::to_json_binary(&query::vault_value(deps)?),
-        QueryMsg::GetWhitelistedDenoms {} => {
-            cosmwasm_std::to_json_binary(&query::whitelisted_denoms(deps)?)
-        }
+        QueryMsg::GetTotalShares {} => to_json_binary(&query::total_shares(deps)?),
+        QueryMsg::GetPriceOracle {} => to_json_binary(&query::price_oracle(deps)?),
+        QueryMsg::GetVaultValue {} => to_json_binary(&query::vault_value(deps)?),
+        QueryMsg::GetWhitelistedDenoms {} => to_json_binary(&query::whitelisted_denoms(deps)?),
         QueryMsg::GetDepositRequest { deposit_id } => {
-            cosmwasm_std::to_json_binary(&query::deposit_request(deps, deposit_id)?)
+            to_json_binary(&query::deposit_request(deps, deposit_id)?)
         }
         QueryMsg::ListDepositRequests { start_after, limit } => {
-            cosmwasm_std::to_json_binary(&query::deposit_requests(deps, start_after, limit)?)
+            to_json_binary(&query::deposit_requests(deps, start_after, limit)?)
         }
-        QueryMsg::GetVaultAssets {} => cosmwasm_std::to_json_binary(&query::vault_assets(deps)?),
+        QueryMsg::GetVaultAssets {} => to_json_binary(&query::vault_assets(deps)?),
         QueryMsg::GetVaultAssetBalance { denom } => {
-            cosmwasm_std::to_json_binary(&query::vault_asset_balance(deps, denom)?)
+            to_json_binary(&query::vault_asset_balance(deps, denom)?)
         }
+        QueryMsg::Ownership {} => Ok(to_json_binary(&cw_ownable::get_ownership(deps.storage)?)?),
     }
 }
