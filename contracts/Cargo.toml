@@ -14,14 +14,18 @@ incremental = false
 overflow-checks = true
 
 [workspace.dependencies]
-cosmwasm-std = { version = "2.2.2", features = ["staking"] }
-cosmwasm-schema = "2.2.2"
-cw-storage-plus = "2.0.0"
-cw2 = "2.0.0"
-schemars = "0.8.22"
+cosmwasm-std = { version = "3.0.2", features = ["staking"] }
+cosmwasm-schema = "3.0.2"
+cw-storage-plus = "3.0.1"
+cw2 = "3.0.0"
+schemars = "1.0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde-json-wasm = "1.0"
 serde_json = "1.0"
 thiserror = "2.0.17"
-cw-utils = "2.0.0"
-cw-ownable = "2.1.0"
+cw-utils = "3.0.0"
+cw-ownable = { git = "https://github.com/permissionlessweb/cw-plus-plus.git" }
+wavs-types = { version = "=2.0.0-alpha.7", default-features = false, features = [
+    "cosmwasm",
+] }
+bincode = "2.0.1"

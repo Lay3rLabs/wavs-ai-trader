@@ -18,6 +18,8 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 cw-utils = { workspace = true }
 cw-ownable = { workspace = true }
+wavs-types = { workspace = true }
+bincode = { workspace = true }
 
 [features]
 library = []

@@ -1,12 +1,17 @@
 use cosmwasm_std::{
-    BankMsg, Coin, CosmosMsg, Decimal, DepsMut, Env, MessageInfo, Response, Uint128,
+    ensure_eq, to_json_binary, BankMsg, Coin, CosmosMsg, Decimal256, DepsMut, Env, MessageInfo,
+    Response, Uint256, WasmMsg,
+};
+use wavs_types::contracts::cosmwasm::service_handler::{WavsEnvelope, WavsSignatureData};
+use wavs_types::contracts::cosmwasm::service_manager::{
+    ServiceManagerQueryMessages, WavsValidateResult,
 };
 
 use crate::error::ContractError;
-use crate::msg::PriceUpdate;
+use crate::msg::{ExecuteMsg, PriceUpdate, VaultExecuteMsg};
 use crate::state::{
-    DepositRequest, DepositState, DEPOSIT_ID_COUNTER, DEPOSIT_REQUESTS, PRICES, PRICE_ORACLE,
-    TOTAL_SHARES, USER_SHARES, VAULT_ASSETS, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
+    self, DepositRequest, DepositState, DEPOSIT_ID_COUNTER, DEPOSIT_REQUESTS, PRICES, TOTAL_SHARES,
+    USER_SHARES, VAULT_ASSETS, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
 };
 
 pub fn deposit(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
@@ -45,7 +50,7 @@ pub fn withdraw(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    shares: Uint128,
+    shares: Uint256,
 ) -> Result<Response, ContractError> {
     if shares.is_zero() {
         return Err(ContractError::ZeroWithdrawal {});
@@ -66,18 +71,18 @@ pub fn withdraw(
         return Err(ContractError::InsufficientShares {});
     }
 
-    let user_value_usd = Decimal::from_ratio(shares, total_shares).checked_mul(vault_value)?;
+    let user_value_usd = Decimal256::from_ratio(shares, total_shares).checked_mul(vault_value)?;
 
     // Store the old total shares for calculation (before subtraction)
     let old_total_shares = total_shares;
 
     // First, collect all vault assets and calculate proportions
-    let assets_to_withdraw: Vec<(String, Uint128, Uint128)> = VAULT_ASSETS
+    let assets_to_withdraw = VAULT_ASSETS
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
         .map(|item| {
-            let (denom, balance) = item.map_err(|e| ContractError::Std(e))?;
+            let (denom, balance) = item?;
             let proportion = shares.multiply_ratio(balance, old_total_shares);
-            Ok::<(String, Uint128, Uint128), ContractError>((denom, balance, proportion))
+            Ok::<(String, Uint256, Uint256), ContractError>((denom, balance, proportion))
         })
         .collect::<Result<Vec<_>, ContractError>>()?;
 
@@ -137,26 +142,6 @@ pub fn withdraw(
         .add_attribute("new_vault_value_usd", updated_vault_value.to_string()))
 }
 
-pub fn update_price_oracle(
-    deps: DepsMut,
-    _env: Env,
-    info: MessageInfo,
-    price_oracle: String,
-) -> Result<Response, ContractError> {
-    // Check if sender is the owner using cw_ownable
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-
-    // Validate and convert String to Addr
-    let price_oracle_addr = deps.api.addr_validate(&price_oracle)?;
-
-    PRICE_ORACLE.save(deps.storage, &price_oracle_addr)?;
-
-    Ok(Response::new()
-        .add_attribute("method", "update_price_oracle")
-        .add_attribute("updated_by", info.sender)
-        .add_attribute("new_oracle", price_oracle))
-}
-
 pub fn update_whitelist(
     deps: DepsMut,
     _env: Env,
@@ -209,15 +194,15 @@ pub fn update_whitelist(
 
 pub fn update_prices(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     prices: Vec<PriceUpdate>,
 ) -> Result<Response, ContractError> {
-    // Check if sender is the price oracle
-    let price_oracle = PRICE_ORACLE.load(deps.storage)?;
-    if info.sender != price_oracle {
-        return Err(ContractError::Unauthorized {});
-    }
+    ensure_eq!(
+        info.sender,
+        env.contract.address,
+        ContractError::Unauthorized {}
+    );
 
     let mut events = Vec::new();
 
@@ -277,18 +262,18 @@ pub fn update_prices(
 // Calculate the total USD value of all vault assets based on current prices
 fn calculate_vault_usd_value(
     storage: &mut dyn cosmwasm_std::Storage,
-) -> Result<Decimal, ContractError> {
-    let mut total_value = Decimal::zero();
+) -> Result<Decimal256, ContractError> {
+    let mut total_value = Decimal256::zero();
 
     // Iterate through all vault assets
     for item in VAULT_ASSETS.range(storage, None, None, cosmwasm_std::Order::Ascending) {
-        let (denom, balance) = item.map_err(|e| ContractError::Std(e))?;
+        let (denom, balance) = item?;
 
         // Get the current price for this denom
         if let Some(price_usd) = PRICES.may_load(storage, denom.clone())? {
             // Calculate USD value: balance * price_usd (convert balance to Decimal first)
             // Assuming 0 decimal places for all tokens
-            let balance_decimal = Decimal::from_atomics(balance, 0)?;
+            let balance_decimal = Decimal256::from_atomics(balance, 0)?;
             let usd_value = price_usd.checked_mul(balance_decimal)?;
             total_value = total_value.checked_add(usd_value)?;
         }
@@ -303,13 +288,13 @@ fn calculate_vault_usd_value(
 // Returns processed deposits and the final vault value including all deposits
 fn process_pending_deposits(
     storage: &mut dyn cosmwasm_std::Storage,
-    vault_value: Decimal,
-) -> Result<(Vec<ProcessedDepositInfo>, Decimal), ContractError> {
+    vault_value: Decimal256,
+) -> Result<(Vec<ProcessedDepositInfo>, Decimal256), ContractError> {
     let mut processed_deposits = Vec::new();
     let total_shares = TOTAL_SHARES.load(storage)?;
 
     // Collect all pending deposits and calculate their values first
-    let pending_deposits: Vec<(u64, Decimal)> = DEPOSIT_REQUESTS
+    let pending_deposits: Vec<(u64, Decimal256)> = DEPOSIT_REQUESTS
         .range(storage, None, None, cosmwasm_std::Order::Ascending)
         .filter_map(|item| {
             let (id, deposit) = item.ok()?;
@@ -317,7 +302,8 @@ fn process_pending_deposits(
                 DepositState::Pending => {
                     // Calculate USD value for this deposit
                     if let Ok(price_usd) = PRICES.load(storage, deposit.coin.denom.clone()) {
-                        let amount_decimal = Decimal::from_atomics(deposit.coin.amount, 0).ok()?;
+                        let amount_decimal =
+                            Decimal256::from_atomics(deposit.coin.amount, 0).ok()?;
                         let value_usd = price_usd.checked_mul(amount_decimal).ok()?;
                         Some((id, value_usd))
                     } else {
@@ -334,10 +320,10 @@ fn process_pending_deposits(
     }
 
     // Calculate total value of all pending deposits
-    let total_deposit_value: Decimal = pending_deposits
+    let total_deposit_value: Decimal256 = pending_deposits
         .iter()
         .map(|(_, value)| *value)
-        .try_fold(Decimal::zero(), |acc, val| acc.checked_add(val))?;
+        .try_fold(Decimal256::zero(), |acc, val| acc.checked_add(val))?;
 
     // Calculate final vault value after all deposits
     let final_vault_value = vault_value.checked_add(total_deposit_value)?;
@@ -347,13 +333,13 @@ fn process_pending_deposits(
     for (_, value_usd) in &pending_deposits {
         let new_shares = if total_shares.is_zero() {
             // Share precision - 1e6 shares per USD
-            let share_precision = Decimal::from_ratio(1000000u128, 1u128);
+            let share_precision = Decimal256::from_ratio(1000000u128, 1u128);
             // First deposit: shares = value_usd * PRECISION
             value_usd.checked_mul(share_precision)?.to_uint_ceil()
         } else {
             // Standard formula: new_shares = total_shares * value_usd / current_vault_value
             // This ensures proportional share issuance based on current vault value
-            let total_shares_decimal = Decimal::from_atomics(total_shares, 0)?;
+            let total_shares_decimal = Decimal256::from_atomics(total_shares, 0)?;
             let new_shares_decimal = total_shares_decimal
                 .checked_mul(*value_usd)?
                 .checked_div(vault_value)?;
@@ -416,10 +402,39 @@ fn process_pending_deposits(
     Ok((processed_deposits, final_vault_value))
 }
 
+pub fn handle_signed_envelope(
+    deps: DepsMut,
+    env: Env,
+    envelope: WavsEnvelope,
+    signature_data: WavsSignatureData,
+) -> Result<Response, ContractError> {
+    let contract_addr = state::SERVICE_MANAGER.load(deps.storage)?;
+
+    deps.querier
+        .query_wasm_smart::<WavsValidateResult>(
+            contract_addr,
+            &ServiceManagerQueryMessages::WavsValidate {
+                envelope: envelope.clone(),
+                signature_data: signature_data.clone(),
+            },
+        )?
+        .into_std()?;
+
+    let prices = state::save_envelope(deps.storage, envelope, signature_data)?;
+
+    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: env.contract.address.to_string(),
+        msg: to_json_binary(&ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices { prices }))?,
+        funds: vec![],
+    });
+
+    Ok(Response::new().add_message(msg))
+}
+
 // Helper struct to track processed deposit information for events
 struct ProcessedDepositInfo {
     deposit_id: u64,
     user: String,
-    value_usd: Decimal,
-    shares_issued: Uint128,
+    value_usd: Decimal256,
+    shares_issued: Uint256,
 }

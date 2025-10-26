@@ -1,21 +1,16 @@
-use cosmwasm_std::{Coin, Decimal, Deps, StdResult, Uint128};
+use cosmwasm_std::{Coin, Decimal256, Deps, StdResult, Uint256};
 use cw_storage_plus::Bound;
 
 use crate::state::{
-    DepositRequest, DEPOSIT_REQUESTS, PRICES, PRICE_ORACLE, TOTAL_SHARES, VAULT_ASSETS,
-    VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
+    DepositRequest, DEPOSIT_REQUESTS, PRICES, TOTAL_SHARES, VAULT_ASSETS, VAULT_VALUE_DEPOSITED,
+    WHITELISTED_DENOMS,
 };
 
-pub fn total_shares(deps: Deps) -> StdResult<Uint128> {
+pub fn total_shares(deps: Deps) -> StdResult<Uint256> {
     TOTAL_SHARES.load(deps.storage)
 }
 
-pub fn price_oracle(deps: Deps) -> StdResult<String> {
-    let price_oracle = PRICE_ORACLE.load(deps.storage)?;
-    Ok(price_oracle.into_string())
-}
-
-pub fn vault_value(deps: Deps) -> StdResult<Decimal> {
+pub fn vault_value(deps: Deps) -> StdResult<Decimal256> {
     VAULT_VALUE_DEPOSITED.load(deps.storage)
 }
 
@@ -53,12 +48,12 @@ pub fn vault_assets(deps: Deps) -> StdResult<Vec<Coin>> {
         .collect()
 }
 
-pub fn vault_asset_balance(deps: Deps, denom: String) -> StdResult<Uint128> {
+pub fn vault_asset_balance(deps: Deps, denom: String) -> StdResult<Uint256> {
     VAULT_ASSETS
         .load(deps.storage, denom)
-        .or(Ok(Uint128::zero()))
+        .or(Ok(Uint256::zero()))
 }
 
-pub fn price(deps: Deps, denom: String) -> StdResult<Decimal> {
-    PRICES.load(deps.storage, denom).or(Ok(Decimal::zero()))
+pub fn price(deps: Deps, denom: String) -> StdResult<Decimal256> {
+    PRICES.load(deps.storage, denom).or(Ok(Decimal256::zero()))
 }

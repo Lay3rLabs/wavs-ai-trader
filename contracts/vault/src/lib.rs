@@ -4,12 +4,15 @@ use cosmwasm_std::{
     to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
 };
 use cw2::set_contract_version;
+use wavs_types::contracts::cosmwasm::service_handler::{
+    ServiceHandlerExecuteMessages, ServiceHandlerQueryMessages,
+};
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
-use crate::state::{
-    DEPOSIT_ID_COUNTER, PRICE_ORACLE, TOTAL_SHARES, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
+use crate::msg::{
+    ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, VaultExecuteMsg, VaultQueryMsg,
 };
+use crate::state::{DEPOSIT_ID_COUNTER, TOTAL_SHARES, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS};
 
 mod error;
 mod execute;
@@ -34,14 +37,10 @@ pub fn instantiate(
         cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
 
     // Set initial total shares to zero
-    TOTAL_SHARES.save(deps.storage, &cosmwasm_std::Uint128::zero())?;
+    TOTAL_SHARES.save(deps.storage, &cosmwasm_std::Uint256::zero())?;
 
     // Set initial vault value to zero
-    VAULT_VALUE_DEPOSITED.save(deps.storage, &cosmwasm_std::Decimal::zero())?;
-
-    // Set price oracle (validate and convert String to Addr)
-    let price_oracle_addr = deps.api.addr_validate(&msg.price_oracle)?;
-    PRICE_ORACLE.save(deps.storage, &price_oracle_addr)?;
+    VAULT_VALUE_DEPOSITED.save(deps.storage, &cosmwasm_std::Decimal256::zero())?;
 
     // Initialize whitelisted denoms
     for denom in msg.initial_whitelisted_denoms {
@@ -64,29 +63,34 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Deposit {} => execute::deposit(deps, env, info),
-        ExecuteMsg::Withdraw { shares } => execute::withdraw(deps, env, info, shares),
-        ExecuteMsg::UpdatePriceOracle { price_oracle } => {
-            execute::update_price_oracle(deps, env, info, price_oracle)
-        }
-        ExecuteMsg::UpdateWhitelist { to_add, to_remove } => {
-            execute::update_whitelist(deps, env, info, to_add, to_remove)
-        }
-        ExecuteMsg::UpdatePrices { prices } => execute::update_prices(deps, env, info, prices),
-        ExecuteMsg::UpdateOwnership(action) => {
-            let ownership =
-                cw_ownable::update_ownership(deps, &env.block, &info.sender, action.clone())?;
+        ExecuteMsg::Vault(msg) => match msg {
+            VaultExecuteMsg::Deposit {} => execute::deposit(deps, env, info),
+            VaultExecuteMsg::Withdraw { shares } => execute::withdraw(deps, env, info, shares),
+            VaultExecuteMsg::UpdateWhitelist { to_add, to_remove } => {
+                execute::update_whitelist(deps, env, info, to_add, to_remove)
+            }
+            VaultExecuteMsg::UpdatePrices { prices } => {
+                execute::update_prices(deps, env, info, prices)
+            }
+            VaultExecuteMsg::UpdateOwnership(action) => {
+                let ownership =
+                    cw_ownable::update_ownership(deps, &env.block, &info.sender, action.clone())?;
 
-            Ok(Response::new().add_attributes(ownership.into_attributes()))
-        }
+                Ok(Response::new().add_attributes(ownership.into_attributes()))
+            }
+        },
+        ExecuteMsg::Wavs(msg) => match msg {
+            ServiceHandlerExecuteMessages::WavsHandleSignedEnvelope {
+                envelope,
+                signature_data,
+            } => execute::handle_signed_envelope(deps, env, envelope, signature_data),
+        },
     }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(_deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
-    match msg.id {
-        _ => Err(ContractError::UnknownReplyId { id: msg.id }),
-    }
+    Err(ContractError::UnknownReplyId { id: msg.id })
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -98,21 +102,29 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetTotalShares {} => to_json_binary(&query::total_shares(deps)?),
-        QueryMsg::GetPriceOracle {} => to_json_binary(&query::price_oracle(deps)?),
-        QueryMsg::GetVaultValue {} => to_json_binary(&query::vault_value(deps)?),
-        QueryMsg::GetWhitelistedDenoms {} => to_json_binary(&query::whitelisted_denoms(deps)?),
-        QueryMsg::GetDepositRequest { deposit_id } => {
-            to_json_binary(&query::deposit_request(deps, deposit_id)?)
-        }
-        QueryMsg::ListDepositRequests { start_after, limit } => {
-            to_json_binary(&query::deposit_requests(deps, start_after, limit)?)
-        }
-        QueryMsg::GetVaultAssets {} => to_json_binary(&query::vault_assets(deps)?),
-        QueryMsg::GetVaultAssetBalance { denom } => {
-            to_json_binary(&query::vault_asset_balance(deps, denom)?)
-        }
-        QueryMsg::GetPrice { denom } => to_json_binary(&query::price(deps, denom)?),
-        QueryMsg::Ownership {} => Ok(to_json_binary(&cw_ownable::get_ownership(deps.storage)?)?),
+        QueryMsg::Vault(msg) => match msg {
+            VaultQueryMsg::GetTotalShares {} => to_json_binary(&query::total_shares(deps)?),
+            VaultQueryMsg::GetVaultValue {} => to_json_binary(&query::vault_value(deps)?),
+            VaultQueryMsg::GetWhitelistedDenoms {} => {
+                to_json_binary(&query::whitelisted_denoms(deps)?)
+            }
+            VaultQueryMsg::GetDepositRequest { deposit_id } => {
+                to_json_binary(&query::deposit_request(deps, deposit_id)?)
+            }
+            VaultQueryMsg::ListDepositRequests { start_after, limit } => {
+                to_json_binary(&query::deposit_requests(deps, start_after, limit)?)
+            }
+            VaultQueryMsg::GetVaultAssets {} => to_json_binary(&query::vault_assets(deps)?),
+            VaultQueryMsg::GetVaultAssetBalance { denom } => {
+                to_json_binary(&query::vault_asset_balance(deps, denom)?)
+            }
+            VaultQueryMsg::GetPrice { denom } => to_json_binary(&query::price(deps, denom)?),
+            VaultQueryMsg::Ownership {} => {
+                Ok(to_json_binary(&cw_ownable::get_ownership(deps.storage)?)?)
+            }
+        },
+        QueryMsg::Wavs(msg) => match msg {
+            ServiceHandlerQueryMessages::WavsServiceManager {} => todo!(),
+        },
     }
 }
