@@ -50,6 +50,9 @@ pub fn instantiate(
     // Initialize deposit_id counter to 0
     DEPOSIT_ID_COUNTER.save(deps.storage, &0u64)?;
 
+    let service_manager = deps.api.addr_validate(&msg.service_manager)?;
+    state::SERVICE_MANAGER.save(deps.storage, &service_manager)?;
+
     Ok(Response::new()
         .add_attribute("method", "instantiate")
         .add_attributes(ownership.into_attributes()))
