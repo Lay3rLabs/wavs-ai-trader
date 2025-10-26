@@ -3,7 +3,7 @@
 This is an entry for [Hackmos: Cosmoverse 2025](https://dorahacks.io/hackathon/hackmos-2025/detail)
 
 [WAVS](https://www.wavs.xyz) enables us to use [decentralized, verifiable AI agents](https://www.layer.xyz/news-and-insights/deterministic-ai) to actively manage a fund and trade without the risk of a rug.
-In conjunction with our bridge this could be done multi-chain, but for now, we are focusing on a PoC of single chain demo.
+We also demonstate how our verifiable off-chain services can be used to easily orchestrate cross-chain protocols, managing multi-step transactions including IBC20 transfers. 
 
 ## Problem Space
 
