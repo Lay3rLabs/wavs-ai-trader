@@ -249,8 +249,7 @@ fn test_deposit_success() {
 
     let deposit_event = find_event(&res.events, "deposit").expect("deposit event not found");
     assert_eq!(event_attr(deposit_event, "deposit_id"), Some("1"));
-    assert_eq!(event_attr(deposit_event, "token"), Some(DENOM_ATOM));
-    assert_eq!(event_attr(deposit_event, "amount"), Some("100"));
+    assert_eq!(event_attr(deposit_event, DENOM_ATOM), Some("100"));
 
     // Check deposit request was created
     let deposit_request = app
@@ -261,7 +260,7 @@ fn test_deposit_success() {
         )
         .unwrap();
     assert_eq!(deposit_request.user, user1_addr);
-    assert_eq!(deposit_request.coin, coin(100, DENOM_ATOM));
+    assert_eq!(deposit_request.coins, vec![coin(100, DENOM_ATOM)]);
     assert!(matches!(deposit_request.state, DepositState::Pending));
 }
 
@@ -288,7 +287,7 @@ fn test_deposit_non_whitelisted_token() {
 fn test_deposit_zero_amount() {
     let (mut app, vault_addr, addrs) = proper_instantiate();
 
-    // Try to deposit zero amount
+    // Try to deposit zero amount - this should fail at the bank level
     let deposit_msg = ExecuteMsg::Vault(VaultExecuteMsg::Deposit {});
     let err = app
         .execute_contract(
@@ -303,6 +302,228 @@ fn test_deposit_zero_amount() {
         &err,
         "kind: Other, error: Cannot transfer empty coins amount",
     );
+}
+
+#[test]
+fn test_multi_denom_deposit_success() {
+    let (mut app, vault_addr, addrs) = proper_instantiate();
+
+    // Deposit multiple denoms at once: 100 uatom + 50 uosmo
+    let deposit_msg = ExecuteMsg::Vault(VaultExecuteMsg::Deposit {});
+    let user1_addr = addrs.user1.clone();
+
+    let res = app
+        .execute_contract(
+            user1_addr.clone(),
+            vault_addr.clone(),
+            &deposit_msg,
+            &[coin(100, DENOM_ATOM), coin(50, DENOM_OSMO)],
+        )
+        .unwrap();
+
+    // Should have 1 deposit event with multiple coins
+    let deposit_events: Vec<_> = res
+        .events
+        .iter()
+        .filter(|e| event_matches(e, "deposit"))
+        .collect();
+    assert_eq!(deposit_events.len(), 1);
+
+    let deposit_event = deposit_events.first().unwrap();
+    assert_eq!(event_attr(deposit_event, "deposit_id"), Some("1"));
+    assert_eq!(event_attr(deposit_event, DENOM_ATOM), Some("100"));
+    assert_eq!(event_attr(deposit_event, DENOM_OSMO), Some("50"));
+
+    // Check that single deposit request was created with both coins
+    let deposit_request = app
+        .wrap()
+        .query_wasm_smart::<crate::state::DepositRequest>(
+            &vault_addr,
+            &QueryMsg::Vault(VaultQueryMsg::GetDepositRequest { deposit_id: 1 }),
+        )
+        .unwrap();
+    assert_eq!(deposit_request.user, user1_addr);
+    assert_eq!(deposit_request.coins.len(), 2);
+    assert!(deposit_request.coins.contains(&coin(100, DENOM_ATOM)));
+    assert!(deposit_request.coins.contains(&coin(50, DENOM_OSMO)));
+    assert!(matches!(deposit_request.state, DepositState::Pending));
+}
+
+#[test]
+fn test_multi_denom_deposit_with_non_whitelisted_token() {
+    let (mut app, vault_addr, addrs) = proper_instantiate();
+
+    // Try to deposit with a non-whitelisted token mixed with whitelisted ones
+    let deposit_msg = ExecuteMsg::Vault(VaultExecuteMsg::Deposit {});
+    let err = app
+        .execute_contract(
+            addrs.user1.clone(),
+            vault_addr,
+            &deposit_msg,
+            &[coin(100, DENOM_ATOM), coin(50, DENOM_UNLISTED)],
+        )
+        .unwrap_err();
+
+    let expected_line = format!("kind: Other, error: Token not whitelisted: {DENOM_UNLISTED}");
+    assert_error_line(&err, expected_line.as_str());
+}
+
+#[test]
+fn test_multi_denom_deposit_zero_amount_mixed() {
+    let (mut app, vault_addr, addrs) = proper_instantiate();
+
+    // Deposit with mixed zero and non-zero amounts
+    let deposit_msg = ExecuteMsg::Vault(VaultExecuteMsg::Deposit {});
+    let res = app
+        .execute_contract(
+            addrs.user1.clone(),
+            vault_addr.clone(),
+            &deposit_msg,
+            &[
+                coin(100, DENOM_ATOM),
+                coin(0, DENOM_OSMO),
+                coin(50, DENOM_OSMO),
+            ],
+        )
+        .unwrap();
+
+    // Should have 1 deposit event (zero amounts filtered out)
+    let deposit_events: Vec<_> = res
+        .events
+        .iter()
+        .filter(|e| event_matches(e, "deposit"))
+        .collect();
+    assert_eq!(deposit_events.len(), 1);
+
+    let deposit_event = deposit_events.first().unwrap();
+    assert_eq!(event_attr(deposit_event, DENOM_ATOM), Some("100"));
+    assert_eq!(event_attr(deposit_event, DENOM_OSMO), Some("50"));
+
+    // Check that single deposit request was created with only non-zero coins
+    let deposit_request = app
+        .wrap()
+        .query_wasm_smart::<crate::state::DepositRequest>(
+            &vault_addr,
+            &QueryMsg::Vault(VaultQueryMsg::GetDepositRequest { deposit_id: 1 }),
+        )
+        .unwrap();
+    assert_eq!(deposit_request.coins.len(), 2);
+    assert!(deposit_request.coins.contains(&coin(100, DENOM_ATOM)));
+    assert!(deposit_request.coins.contains(&coin(50, DENOM_OSMO)));
+    assert!(!deposit_request.coins.iter().any(|c| c.amount.is_zero()));
+}
+
+#[test]
+fn test_multi_denom_deposit_no_funds() {
+    let (mut app, vault_addr, addrs) = proper_instantiate();
+
+    // Try to deposit with no funds
+    let deposit_msg = ExecuteMsg::Vault(VaultExecuteMsg::Deposit {});
+    let err = app
+        .execute_contract(addrs.user1.clone(), vault_addr, &deposit_msg, &[])
+        .unwrap_err();
+
+    assert_error_line(&err, "kind: Other, error: No funds provided");
+}
+
+#[test]
+fn test_multi_denom_deposit_only_zero_amounts() {
+    let (mut app, vault_addr, addrs) = proper_instantiate();
+
+    // Try to deposit with only zero amounts - this should fail at the bank level
+    let deposit_msg = ExecuteMsg::Vault(VaultExecuteMsg::Deposit {});
+    let err = app
+        .execute_contract(
+            addrs.user1.clone(),
+            vault_addr,
+            &deposit_msg,
+            &[coin(0, DENOM_ATOM), coin(0, DENOM_OSMO)],
+        )
+        .unwrap_err();
+
+    assert_error_line(
+        &err,
+        "kind: Other, error: Cannot transfer empty coins amount",
+    );
+}
+
+#[test]
+fn test_multi_denom_deposit_price_processing() {
+    let (mut app, vault_addr, addrs) = proper_instantiate();
+
+    // Make a multi-denom deposit
+    let deposit_msg = ExecuteMsg::Vault(VaultExecuteMsg::Deposit {});
+    app.execute_contract(
+        addrs.user1.clone(),
+        vault_addr.clone(),
+        &deposit_msg,
+        &[coin(100, DENOM_ATOM), coin(200, DENOM_OSMO)],
+    )
+    .unwrap();
+
+    // Update prices - should process the single multi-denom deposit
+    let res = execute_update_prices(
+        &mut app,
+        &vault_addr,
+        vec![
+            PriceUpdate {
+                denom: DENOM_ATOM.to_string(),
+                price_usd: decimal(10),
+            },
+            PriceUpdate {
+                denom: DENOM_OSMO.to_string(),
+                price_usd: decimal(5),
+            },
+        ],
+    );
+
+    // Should have processed 1 deposit (containing multiple coins)
+    let processed_events: Vec<_> = res
+        .events
+        .iter()
+        .filter(|e| event_matches(e, "deposit_processed"))
+        .collect();
+    assert_eq!(processed_events.len(), 1);
+
+    let deposit_event = processed_events.first().unwrap();
+    assert_eq!(event_attr(deposit_event, "deposit_id"), Some("1"));
+
+    // Check vault value includes both deposits: (100 * 10) + (200 * 5) = 1000 + 1000 = 2000
+    let vault_value: Decimal256 = app
+        .wrap()
+        .query_wasm_smart(
+            &vault_addr,
+            &QueryMsg::Vault(VaultQueryMsg::GetVaultValue {}),
+        )
+        .unwrap();
+    assert_eq!(vault_value, decimal(2000));
+
+    // Check vault assets include both denoms
+    let vault_assets: Vec<Coin> = app
+        .wrap()
+        .query_wasm_smart(
+            &vault_addr,
+            &QueryMsg::Vault(VaultQueryMsg::GetVaultAssets {}),
+        )
+        .unwrap();
+    assert_eq!(vault_assets.len(), 2);
+    assert!(vault_assets.contains(&coin(100, DENOM_ATOM)));
+    assert!(vault_assets.contains(&coin(200, DENOM_OSMO)));
+
+    // Check that the deposit was completed with the correct total value
+    let deposit_request = app
+        .wrap()
+        .query_wasm_smart::<crate::state::DepositRequest>(
+            &vault_addr,
+            &QueryMsg::Vault(VaultQueryMsg::GetDepositRequest { deposit_id: 1 }),
+        )
+        .unwrap();
+    match deposit_request.state {
+        crate::state::DepositState::Completed { value_usd } => {
+            assert_eq!(value_usd, decimal(2000));
+        }
+        _ => panic!("Deposit should be completed"),
+    }
 }
 
 #[test]

@@ -43,4 +43,7 @@ pub enum ContractError {
 
     #[error("Cannot withdraw zero shares")]
     ZeroWithdrawal {},
+
+    #[error("No funds provided")]
+    NoFunds {},
 }

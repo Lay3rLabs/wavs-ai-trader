@@ -11,7 +11,7 @@ use crate::msg::PriceUpdate;
 pub struct DepositRequest {
     pub id: u64,
     pub user: Addr,
-    pub coin: Coin,
+    pub coins: Vec<Coin>,
     pub state: DepositState,
 }
 

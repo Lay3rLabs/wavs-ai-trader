@@ -15,15 +15,31 @@ use crate::state::{
 };
 
 pub fn deposit(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
-    // Validate payment using cw_utils helpers
-    let coin = cw_utils::one_coin(&info)?;
+    // Validate that funds are provided
+    if info.funds.is_empty() {
+        return Err(ContractError::NoFunds {});
+    }
 
-    // Check if token is whitelisted
-    WHITELISTED_DENOMS
-        .load(deps.storage, coin.denom.clone())
-        .map_err(|_| ContractError::TokenNotWhitelisted {
-            token: coin.denom.clone(),
-        })?;
+    // Filter out zero amounts and validate all coins are whitelisted
+    let mut valid_coins = Vec::new();
+    for coin in &info.funds {
+        if coin.amount.is_zero() {
+            continue;
+        }
+
+        // Check if token is whitelisted
+        WHITELISTED_DENOMS
+            .load(deps.storage, coin.denom.clone())
+            .map_err(|_| ContractError::TokenNotWhitelisted {
+                token: coin.denom.clone(),
+            })?;
+
+        valid_coins.push(coin.clone());
+    }
+
+    if valid_coins.is_empty() {
+        return Err(ContractError::NoFunds {});
+    }
 
     // Generate auto-incrementing deposit_id
     let deposit_id =
@@ -32,18 +48,23 @@ pub fn deposit(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, 
     let deposit_request = DepositRequest {
         id: deposit_id,
         user: info.sender.clone(),
-        coin: coin.clone(),
+        coins: valid_coins.clone(),
         state: DepositState::Pending,
     };
 
     DEPOSIT_REQUESTS.save(deps.storage, deposit_id, &deposit_request)?;
 
-    Ok(Response::new().add_event(
-        cosmwasm_std::Event::new("deposit")
-            .add_attribute("deposit_id", deposit_id.to_string())
-            .add_attribute("token", &coin.denom)
-            .add_attribute("amount", coin.amount.to_string()),
-    ))
+    // Create a single deposit event with summary info
+    let mut deposit_event = cosmwasm_std::Event::new("deposit")
+        .add_attribute("deposit_id", deposit_id.to_string())
+        .add_attribute("user", &info.sender);
+
+    // Add attributes for each coin (denoms are already deduplicated by Cosmos)
+    for coin in &valid_coins {
+        deposit_event = deposit_event.add_attribute(&coin.denom, coin.amount.to_string());
+    }
+
+    Ok(Response::new().add_event(deposit_event))
 }
 
 pub fn withdraw(
@@ -306,12 +327,23 @@ fn process_pending_deposits(
             let (id, deposit) = item.ok()?;
             match deposit.state {
                 DepositState::Pending => {
-                    // Calculate USD value for this deposit
-                    if let Ok(price_usd) = PRICES.load(storage, deposit.coin.denom.clone()) {
-                        let amount_decimal =
-                            Decimal256::from_atomics(deposit.coin.amount, 0).ok()?;
-                        let value_usd = price_usd.checked_mul(amount_decimal).ok()?;
-                        Some((id, value_usd))
+                    // Calculate USD value for this multi-denom deposit
+                    let mut total_value = Decimal256::zero();
+                    let mut has_valid_prices = true;
+
+                    for coin in &deposit.coins {
+                        if let Ok(price_usd) = PRICES.load(storage, coin.denom.clone()) {
+                            let amount_decimal = Decimal256::from_atomics(coin.amount, 0).ok()?;
+                            let coin_value = price_usd.checked_mul(amount_decimal).ok()?;
+                            total_value = total_value.checked_add(coin_value).ok()?;
+                        } else {
+                            has_valid_prices = false;
+                            break;
+                        }
+                    }
+
+                    if has_valid_prices && !total_value.is_zero() {
+                        Some((id, total_value))
                     } else {
                         None
                     }
@@ -377,17 +409,18 @@ fn process_pending_deposits(
                 },
             )?;
 
-            // Add the deposited coin to vault assets
-            VAULT_ASSETS.update(
-                storage,
-                deposit_request.coin.denom.clone(),
-                |balance| -> Result<_, ContractError> {
-                    let current_balance = balance.unwrap_or_default();
-                    let updated_balance =
-                        current_balance.checked_add(deposit_request.coin.amount)?;
-                    Ok(updated_balance)
-                },
-            )?;
+            // Add all deposited coins to vault assets
+            for coin in &deposit_request.coins {
+                VAULT_ASSETS.update(
+                    storage,
+                    coin.denom.clone(),
+                    |balance| -> Result<_, ContractError> {
+                        let current_balance = balance.unwrap_or_default();
+                        let updated_balance = current_balance.checked_add(coin.amount)?;
+                        Ok(updated_balance)
+                    },
+                )?;
+            }
 
             // Update total shares for next calculation
             new_total_shares = new_total_shares.checked_add(new_shares)?;
