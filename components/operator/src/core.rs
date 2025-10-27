@@ -30,7 +30,7 @@ impl TradeStrategy {
     }
 }
 
-pub async fn calculate_weights(
+pub async fn generate_payload(
     query_client: QueryClient,
     addr: Address,
     trade_strategy: TradeStrategy,
