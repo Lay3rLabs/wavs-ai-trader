@@ -1,6 +1,6 @@
 use crate::state::DepositRequest;
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Coin, Uint128, Uint256};
+use cosmwasm_std::{Coin, Uint256};
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 use wavs_types::contracts::cosmwasm::service_handler::{
     ServiceHandlerExecuteMessages, ServiceHandlerQueryMessages,
@@ -39,9 +39,9 @@ pub enum ExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum VaultQueryMsg {
-    #[returns(Uint128)]
+    #[returns(Uint256)]
     GetTotalShares {},
-    #[returns(cosmwasm_std::Decimal)]
+    #[returns(cosmwasm_std::Decimal256)]
     GetVaultValue {},
     #[returns(Vec<String>)]
     GetWhitelistedDenoms {},
@@ -54,9 +54,9 @@ pub enum VaultQueryMsg {
     },
     #[returns(Vec<Coin>)]
     GetVaultAssets {},
-    #[returns(Uint128)]
+    #[returns(Uint256)]
     GetVaultAssetBalance { denom: String },
-    #[returns(cosmwasm_std::Decimal)]
+    #[returns(cosmwasm_std::Decimal256)]
     GetPrice { denom: String },
 }
 

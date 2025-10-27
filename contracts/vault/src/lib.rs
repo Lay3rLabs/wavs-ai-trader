@@ -20,6 +20,9 @@ mod msg;
 mod query;
 mod state;
 
+#[cfg(test)]
+mod tests;
+
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -127,7 +130,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             }
         },
         QueryMsg::Wavs(msg) => match msg {
-            ServiceHandlerQueryMessages::WavsServiceManager {} => todo!(),
+            ServiceHandlerQueryMessages::WavsServiceManager {} => {
+                to_json_binary(&state::SERVICE_MANAGER.load(deps.storage)?)
+            }
         },
     }
 }

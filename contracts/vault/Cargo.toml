@@ -21,5 +21,8 @@ cw-ownable = { workspace = true }
 wavs-types = { workspace = true }
 bincode = { workspace = true }
 
+[dev-dependencies]
+cw-multi-test = { workspace = true }
+
 [features]
 library = []
