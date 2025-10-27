@@ -500,6 +500,49 @@ fn test_share_issuance_precision() {
 }
 
 #[test]
+fn test_update_prices_rejects_zero_price() {
+    let (mut app, vault_addr, addrs) = proper_instantiate();
+
+    // Create a pending deposit so we can assert it remains untouched.
+    let deposit_msg = ExecuteMsg::Vault(VaultExecuteMsg::Deposit {});
+    app.execute_contract(
+        addrs.user1.clone(),
+        vault_addr.clone(),
+        &deposit_msg,
+        &coins(100, DENOM_ATOM),
+    )
+    .unwrap();
+
+    let err = app
+        .execute_contract(
+            vault_addr.clone(),
+            vault_addr.clone(),
+            &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
+                prices: vec![PriceUpdate {
+                    denom: DENOM_ATOM.to_string(),
+                    price_usd: Decimal256::zero(),
+                }],
+            }),
+            &[],
+        )
+        .unwrap_err();
+
+    let expected_line =
+        format!("kind: Other, error: Price must be greater than zero for denom: {DENOM_ATOM}");
+    assert_error_line(&err, expected_line.as_str());
+
+    // Ensure deposit stayed pending
+    let deposit_request = app
+        .wrap()
+        .query_wasm_smart::<crate::state::DepositRequest>(
+            &vault_addr,
+            &QueryMsg::Vault(VaultQueryMsg::GetDepositRequest { deposit_id: 1 }),
+        )
+        .unwrap();
+    assert!(matches!(deposit_request.state, DepositState::Pending));
+}
+
+#[test]
 fn test_multi_denom_price_updates_with_pending_handling() {
     let (mut app, vault_addr, addrs) = proper_instantiate();
 

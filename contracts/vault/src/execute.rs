@@ -215,6 +215,12 @@ pub fn update_prices(
                 token: price_update.denom.clone(),
             })?;
 
+        if price_update.price_usd.is_zero() {
+            return Err(ContractError::ZeroPrice {
+                denom: price_update.denom.clone(),
+            });
+        }
+
         // Store the new price
         PRICES.save(
             deps.storage,

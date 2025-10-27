@@ -32,6 +32,9 @@ pub enum ContractError {
     #[error("Insufficient shares")]
     InsufficientShares {},
 
+    #[error("Price must be greater than zero for denom: {denom}")]
+    ZeroPrice { denom: String },
+
     #[error("Deposit already completed: {deposit_id}")]
     DepositAlreadyCompleted { deposit_id: u64 },
 
