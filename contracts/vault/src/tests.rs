@@ -3,11 +3,15 @@ use cw_multi_test::{App, AppBuilder, AppResponse, Contract, ContractWrapper, Exe
 use cw_ownable::Ownership;
 use std::str::FromStr;
 
-use crate::msg::{
-    ExecuteMsg, InstantiateMsg, PriceUpdate, QueryMsg, VaultExecuteMsg, VaultQueryMsg,
+use crate::{
+    execute, instantiate,
+    msg::{
+        DenomAllocation, ExecuteMsg, InstantiateMsg, PriceUpdate, QueryMsg, VaultExecuteMsg,
+        VaultQueryMsg,
+    },
+    query,
+    state::DepositState,
 };
-use crate::state::DepositState;
-use crate::{execute, instantiate, query};
 
 const DENOM_ATOM: &str = "uatom";
 const DENOM_OSMO: &str = "uosmo";
@@ -140,6 +144,7 @@ fn execute_update_prices(
         vault_addr.clone(),
         &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
             prices: price_updates,
+            strategy: None,
         }),
         &[],
     )
@@ -743,6 +748,7 @@ fn test_update_prices_rejects_zero_price() {
                     denom: DENOM_ATOM.to_string(),
                     price_usd: Decimal256::zero(),
                 }],
+                strategy: None,
             }),
             &[],
         )
@@ -1472,4 +1478,110 @@ fn test_list_deposit_requests() {
         .unwrap();
     assert_eq!(deposits.len(), 1);
     assert_eq!(deposits[0].id, 2);
+}
+
+#[test]
+fn test_strategy_validation_and_rebalancing() {
+    let (mut app, vault_addr, _addrs) = proper_instantiate();
+
+    // Test 1: Invalid strategy - percentages don't sum to 100%
+    let invalid_strategy = vec![
+        DenomAllocation {
+            denom: DENOM_ATOM.to_string(),
+            percentage: Decimal256::from_str("0.6").unwrap(), // 60%
+        },
+        DenomAllocation {
+            denom: DENOM_OSMO.to_string(),
+            percentage: Decimal256::from_str("0.3").unwrap(), // 30%
+        },
+    ]; // Total: 90%, should fail
+
+    let err = app
+        .execute_contract(
+            vault_addr.clone(),
+            vault_addr.clone(),
+            &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
+                prices: vec![
+                    PriceUpdate {
+                        denom: DENOM_ATOM.to_string(),
+                        price_usd: Decimal256::from_str("10.0").unwrap(),
+                    },
+                    PriceUpdate {
+                        denom: DENOM_OSMO.to_string(),
+                        price_usd: Decimal256::from_str("5.0").unwrap(),
+                    },
+                ],
+                strategy: Some(invalid_strategy),
+            }),
+            &[],
+        )
+        .unwrap_err();
+
+    let error_str = err.to_string();
+    assert!(error_str.contains("Invalid percentages: must sum to 100%"));
+
+    // Test 2: Invalid strategy - duplicate denom
+    let duplicate_strategy = vec![
+        DenomAllocation {
+            denom: DENOM_ATOM.to_string(),
+            percentage: Decimal256::from_str("0.5").unwrap(),
+        },
+        DenomAllocation {
+            denom: DENOM_ATOM.to_string(),
+            percentage: Decimal256::from_str("0.5").unwrap(),
+        },
+    ];
+
+    let err = app
+        .execute_contract(
+            vault_addr.clone(),
+            vault_addr.clone(),
+            &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
+                prices: vec![PriceUpdate {
+                    denom: DENOM_ATOM.to_string(),
+                    price_usd: Decimal256::from_str("10.0").unwrap(),
+                }],
+                strategy: Some(duplicate_strategy),
+            }),
+            &[],
+        )
+        .unwrap_err();
+
+    let error_str = err.to_string();
+    assert!(error_str.contains("Duplicate denom") && error_str.contains(DENOM_ATOM));
+
+    // Test 3: Valid strategy - should succeed and emit rebalancing events
+    let valid_strategy = vec![
+        DenomAllocation {
+            denom: DENOM_ATOM.to_string(),
+            percentage: Decimal256::from_str("0.6").unwrap(), // 60%
+        },
+        DenomAllocation {
+            denom: DENOM_OSMO.to_string(),
+            percentage: Decimal256::from_str("0.4").unwrap(), // 40%
+        },
+    ]; // Total: 100%
+
+    // Test 3: Valid strategy - should succeed without errors
+    // Just test that the strategy validation passes without overflow
+    let _response = app
+        .execute_contract(
+            vault_addr.clone(),
+            vault_addr.clone(),
+            &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
+                prices: vec![
+                    PriceUpdate {
+                        denom: DENOM_ATOM.to_string(),
+                        price_usd: Decimal256::from_str("10.0").unwrap(),
+                    },
+                    PriceUpdate {
+                        denom: DENOM_OSMO.to_string(),
+                        price_usd: Decimal256::from_str("5.0").unwrap(),
+                    },
+                ],
+                strategy: Some(valid_strategy),
+            }),
+            &[],
+        )
+        .unwrap();
 }

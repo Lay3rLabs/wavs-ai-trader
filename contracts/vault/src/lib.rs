@@ -19,6 +19,7 @@ mod execute;
 mod msg;
 mod query;
 mod state;
+mod utils;
 
 #[cfg(test)]
 mod tests;
@@ -75,8 +76,8 @@ pub fn execute(
             VaultExecuteMsg::UpdateWhitelist { to_add, to_remove } => {
                 execute::update_whitelist(deps, env, info, to_add, to_remove)
             }
-            VaultExecuteMsg::UpdatePrices { prices } => {
-                execute::update_prices(deps, env, info, prices)
+            VaultExecuteMsg::UpdatePrices { prices, strategy } => {
+                execute::update_prices(deps, env, info, prices, strategy)
             }
             VaultExecuteMsg::UpdateOwnership(action) => {
                 let ownership =

@@ -20,6 +20,7 @@ cw-utils = { workspace = true }
 cw-ownable = { workspace = true }
 wavs-types = { workspace = true }
 bincode = { workspace = true }
+astroport = { workspace = true }
 
 [dev-dependencies]
 cw-multi-test = { workspace = true }

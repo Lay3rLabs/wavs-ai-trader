@@ -30,3 +30,4 @@ wavs-types = { version = "=2.0.0-alpha.7", default-features = false, features = 
 ] }
 bincode = "2.0.1"
 cw-multi-test = "3.0.1"
+astroport = "5.9.0"

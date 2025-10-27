@@ -25,6 +25,7 @@ pub enum VaultExecuteMsg {
     },
     UpdatePrices {
         prices: Vec<PriceUpdate>,
+        strategy: Option<Vec<DenomAllocation>>,
     },
 }
 
@@ -73,6 +74,12 @@ pub enum QueryMsg {
 pub struct PriceUpdate {
     pub denom: String,
     pub price_usd: cosmwasm_std::Decimal256, // Price as USD decimal (e.g., 1234.56)
+}
+
+#[cw_serde]
+pub struct DenomAllocation {
+    pub denom: String,
+    pub percentage: cosmwasm_std::Decimal256, // Percentage as decimal (e.g., 0.4 for 40%)
 }
 
 #[cw_serde]

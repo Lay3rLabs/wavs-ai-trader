@@ -5,7 +5,7 @@ use cw_storage_plus::{Item, Map};
 use serde::{Deserialize, Serialize};
 use wavs_types::contracts::cosmwasm::service_handler::{WavsEnvelope, WavsSignatureData};
 
-use crate::msg::PriceUpdate;
+use crate::msg::{DenomAllocation, PriceUpdate};
 
 #[cw_serde]
 pub struct DepositRequest {
@@ -40,6 +40,7 @@ pub const SIGNATURE_DATA: Map<Uint64, WavsSignatureData> = Map::new("signature-d
 pub struct MessageWithId {
     pub trigger_id: Uint64,
     pub prices: Vec<PriceUpdate>,
+    pub strategy: Option<Vec<DenomAllocation>>,
 }
 
 impl MessageWithId {
@@ -57,12 +58,12 @@ pub fn save_envelope(
     storage: &mut dyn cosmwasm_std::Storage,
     envelope: WavsEnvelope,
     signature_data: WavsSignatureData,
-) -> cosmwasm_std::StdResult<Vec<PriceUpdate>> {
+) -> cosmwasm_std::StdResult<MessageWithId> {
     let envelope = envelope.decode()?;
     let message_with_id = MessageWithId::from_bytes(&envelope.payload)?;
 
     TRIGGER_MESSAGE.save(storage, message_with_id.trigger_id, &message_with_id.prices)?;
     SIGNATURE_DATA.save(storage, message_with_id.trigger_id, &signature_data)?;
 
-    Ok(message_with_id.prices)
+    Ok(message_with_id)
 }

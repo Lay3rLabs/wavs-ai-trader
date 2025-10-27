@@ -46,4 +46,10 @@ pub enum ContractError {
 
     #[error("No funds provided")]
     NoFunds {},
+
+    #[error("Invalid percentages: must sum to 100%")]
+    InvalidPercentages {},
+
+    #[error("Duplicate denom: {denom}")]
+    DuplicateDenom { denom: String },
 }
