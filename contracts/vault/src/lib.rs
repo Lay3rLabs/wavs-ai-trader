@@ -12,9 +12,6 @@ use wavs_types::contracts::cosmwasm::service_handler::{
 use crate::astroport::SwapResponseData;
 use crate::error::ContractError;
 use crate::execute::calculate_vault_usd_value;
-use crate::msg::{
-    ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, VaultExecuteMsg, VaultQueryMsg,
-};
 use crate::state::{
     ASTROPORT_ROUTER, DEPOSIT_ID_COUNTER, TOTAL_SHARES, TRADE_TRACKER, VAULT_ASSETS,
     VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
@@ -23,9 +20,11 @@ use crate::state::{
 mod astroport;
 mod error;
 mod execute;
-mod msg;
+pub mod msg;
 mod query;
 mod state;
+
+pub use msg::*;
 
 #[cfg(test)]
 mod tests;
@@ -178,10 +177,16 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             VaultQueryMsg::GetVaultAssetBalance { denom } => {
                 to_json_binary(&query::vault_asset_balance(deps, denom)?)
             }
+            VaultQueryMsg::GetPendingAssets {} => to_json_binary(&query::pending_assets(deps)?),
+            VaultQueryMsg::GetPendingAssetBalance { denom } => {
+                to_json_binary(&query::pending_asset_balance(deps, denom)?)
+            }
             VaultQueryMsg::GetPrice { denom } => to_json_binary(&query::price(deps, denom)?),
             VaultQueryMsg::Ownership {} => {
                 Ok(to_json_binary(&cw_ownable::get_ownership(deps.storage)?)?)
             }
+            VaultQueryMsg::GetVaultState {} => to_json_binary(&query::vault_state(deps)?),
+            VaultQueryMsg::GetPrices {} => to_json_binary(&query::prices(deps)?),
         },
         QueryMsg::Wavs(msg) => match msg {
             ServiceHandlerQueryMessages::WavsServiceManager {} => {

@@ -10,13 +10,12 @@ use wavs_types::contracts::cosmwasm::service_manager::{
 
 use crate::astroport::{SwapOperation, SwapOperations};
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, PriceUpdate, VaultExecuteMsg};
+use crate::msg::{ExecuteMsg, PriceInfo, VaultExecuteMsg};
 use crate::state::{
-    self, DepositRequest, DepositState, MessageWithId, TradeInfo, ASTROPORT_ROUTER,
-    DEPOSIT_ID_COUNTER, DEPOSIT_REQUESTS, PRICES, TOTAL_SHARES, TRADE_TRACKER, USER_SHARES,
-    VAULT_ASSETS, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
+    self, TradeInfo, ASTROPORT_ROUTER, DEPOSIT_ID_COUNTER, DEPOSIT_REQUESTS, PRICES, TOTAL_SHARES,
+    TRADE_TRACKER, USER_SHARES, VAULT_ASSETS, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
 };
-use crate::REPLY_TRACKER_ID;
+use crate::{DepositRequest, DepositState, Payload, REPLY_TRACKER_ID};
 
 pub fn deposit(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
     // Validate that funds are provided
@@ -221,7 +220,7 @@ pub fn update_prices(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    prices: Vec<PriceUpdate>,
+    prices: Vec<PriceInfo>,
     swap_operations: Option<Vec<SwapOperations>>,
 ) -> Result<Response, ContractError> {
     ensure_eq!(
@@ -512,7 +511,7 @@ pub fn handle_signed_envelope(
         )?
         .into_std()?;
 
-    let MessageWithId {
+    let Payload {
         prices,
         swap_operations,
         ..

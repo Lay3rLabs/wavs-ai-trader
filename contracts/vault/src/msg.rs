@@ -1,7 +1,9 @@
-use crate::{astroport::SwapOperations, state::DepositRequest};
+use crate::astroport::SwapOperations;
+use bincode::error::{DecodeError, EncodeError};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Coin, Uint256};
+use cosmwasm_std::{Addr, Coin, Decimal256, Timestamp, Uint256};
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
+use serde::{Deserialize, Serialize};
 use wavs_types::contracts::cosmwasm::service_handler::{
     ServiceHandlerExecuteMessages, ServiceHandlerQueryMessages,
 };
@@ -25,7 +27,7 @@ pub enum VaultExecuteMsg {
         to_remove: Option<Vec<String>>,
     },
     UpdatePrices {
-        prices: Vec<PriceUpdate>,
+        prices: Vec<PriceInfo>,
         swap_operations: Option<Vec<SwapOperations>>,
     },
 }
@@ -58,8 +60,16 @@ pub enum VaultQueryMsg {
     GetVaultAssets {},
     #[returns(Uint256)]
     GetVaultAssetBalance { denom: String },
+    #[returns(Vec<Coin>)]
+    GetPendingAssets {},
+    #[returns(Uint256)]
+    GetPendingAssetBalance { denom: String },
     #[returns(cosmwasm_std::Decimal256)]
     GetPrice { denom: String },
+    #[returns(Vec<PriceInfo>)]
+    GetPrices {},
+    #[returns(VaultState)]
+    GetVaultState {},
 }
 
 #[cw_serde]
@@ -72,10 +82,50 @@ pub enum QueryMsg {
 }
 
 #[cw_serde]
-pub struct PriceUpdate {
-    pub denom: String,
-    pub price_usd: cosmwasm_std::Decimal256, // Price as USD decimal (e.g., 1234.56)
+pub struct MigrateMsg {}
+
+#[cw_serde]
+pub struct VaultState {
+    pub funds: Vec<Coin>,
+    pub pending_assets: Vec<Coin>,
+    pub prices: Vec<PriceInfo>,
+    pub tvl: Decimal256,
 }
 
 #[cw_serde]
-pub struct MigrateMsg {}
+pub struct PriceInfo {
+    pub denom: String,
+    pub price_usd: Decimal256, // Price as USD decimal (e.g., 1234.56)
+}
+
+#[cw_serde]
+pub struct DepositRequest {
+    pub id: u64,
+    pub user: Addr,
+    pub coins: Vec<Coin>,
+    pub state: DepositState,
+}
+
+#[cw_serde]
+pub enum DepositState {
+    Pending,
+    Completed { value_usd: Decimal256 },
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Payload {
+    pub timestamp: Timestamp,
+    pub prices: Vec<PriceInfo>,
+    pub swap_operations: Option<Vec<SwapOperations>>,
+}
+
+impl Payload {
+    #[allow(dead_code)]
+    pub fn to_bytes(&self) -> Result<Vec<u8>, EncodeError> {
+        bincode::serde::encode_to_vec(self, bincode::config::standard())
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, DecodeError> {
+        Ok(bincode::serde::decode_from_slice(bytes, bincode::config::standard())?.0)
+    }
+}
