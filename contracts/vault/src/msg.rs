@@ -1,4 +1,4 @@
-use crate::state::DepositRequest;
+use crate::{astroport::SwapOperations, state::DepositRequest};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Coin, Uint256};
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
@@ -10,6 +10,7 @@ use wavs_types::contracts::cosmwasm::service_handler::{
 pub struct InstantiateMsg {
     pub service_manager: String,
     pub initial_whitelisted_denoms: Vec<String>,
+    pub astroport_router: String,
 }
 
 #[cw_ownable_execute]
@@ -25,7 +26,7 @@ pub enum VaultExecuteMsg {
     },
     UpdatePrices {
         prices: Vec<PriceUpdate>,
-        strategy: Option<Vec<DenomAllocation>>,
+        swap_operations: Option<Vec<SwapOperations>>,
     },
 }
 
@@ -74,12 +75,6 @@ pub enum QueryMsg {
 pub struct PriceUpdate {
     pub denom: String,
     pub price_usd: cosmwasm_std::Decimal256, // Price as USD decimal (e.g., 1234.56)
-}
-
-#[cw_serde]
-pub struct DenomAllocation {
-    pub denom: String,
-    pub percentage: cosmwasm_std::Decimal256, // Percentage as decimal (e.g., 0.4 for 40%)
 }
 
 #[cw_serde]

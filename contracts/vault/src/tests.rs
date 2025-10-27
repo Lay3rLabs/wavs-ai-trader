@@ -4,11 +4,9 @@ use cw_ownable::Ownership;
 use std::str::FromStr;
 
 use crate::{
+    astroport::SwapOperations,
     execute, instantiate,
-    msg::{
-        DenomAllocation, ExecuteMsg, InstantiateMsg, PriceUpdate, QueryMsg, VaultExecuteMsg,
-        VaultQueryMsg,
-    },
+    msg::{ExecuteMsg, InstantiateMsg, PriceUpdate, QueryMsg, VaultExecuteMsg, VaultQueryMsg},
     query,
     state::DepositState,
 };
@@ -17,6 +15,7 @@ const DENOM_ATOM: &str = "uatom";
 const DENOM_OSMO: &str = "uosmo";
 const DENOM_UNLISTED: &str = "utoken";
 const SERVICE_MANAGER: &str = "service-manager";
+const ASTROPORT_ROUTER_ADDR: &str = "astroport-router";
 
 #[derive(Clone)]
 struct TestAddrs {
@@ -24,6 +23,7 @@ struct TestAddrs {
     user1: Addr,
     user2: Addr,
     service_manager: Addr,
+    astroport_router: Addr,
 }
 
 fn mock_app_with_addrs() -> (App, TestAddrs) {
@@ -31,17 +31,20 @@ fn mock_app_with_addrs() -> (App, TestAddrs) {
     let mut user1_addr: Option<Addr> = None;
     let mut user2_addr: Option<Addr> = None;
     let mut service_manager_addr: Option<Addr> = None;
+    let mut astroport_router_addr: Option<Addr> = None;
 
     let app = AppBuilder::new().build(|router, api, storage| {
         let owner = api.addr_make(OWNER);
         let user1 = api.addr_make(USER1);
         let user2 = api.addr_make(USER2);
         let service_manager = api.addr_make(SERVICE_MANAGER);
+        let astroport_router = api.addr_make(ASTROPORT_ROUTER_ADDR);
 
         owner_addr = Some(owner.clone());
         user1_addr = Some(user1.clone());
         user2_addr = Some(user2.clone());
         service_manager_addr = Some(service_manager.clone());
+        astroport_router_addr = Some(astroport_router.clone());
 
         router
             .bank
@@ -86,6 +89,7 @@ fn mock_app_with_addrs() -> (App, TestAddrs) {
         user1: user1_addr.expect("user1 address initialized"),
         user2: user2_addr.expect("user2 address initialized"),
         service_manager: service_manager_addr.expect("service manager address initialized"),
+        astroport_router: astroport_router_addr.expect("astroport router address initialized"),
     };
 
     (app, addrs)
@@ -137,14 +141,15 @@ fn decimal(value: u128) -> Decimal256 {
 fn execute_update_prices(
     app: &mut App,
     vault_addr: &Addr,
-    price_updates: Vec<PriceUpdate>,
+    prices: Vec<PriceUpdate>,
+    swap_operations: Option<Vec<SwapOperations>>,
 ) -> AppResponse {
     app.execute_contract(
         vault_addr.clone(),
         vault_addr.clone(),
         &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
-            prices: price_updates,
-            strategy: None,
+            prices,
+            swap_operations,
         }),
         &[],
     )
@@ -167,6 +172,7 @@ fn proper_instantiate() -> (App, Addr, TestAddrs) {
     let msg = InstantiateMsg {
         service_manager: addrs.service_manager.to_string(),
         initial_whitelisted_denoms: vec![DENOM_ATOM.to_string(), DENOM_OSMO.to_string()],
+        astroport_router: addrs.astroport_router.to_string(),
     };
 
     let vault_addr = app
@@ -184,6 +190,7 @@ fn test_instantiate() {
     let msg = InstantiateMsg {
         service_manager: addrs.service_manager.to_string(),
         initial_whitelisted_denoms: vec![DENOM_ATOM.to_string(), DENOM_OSMO.to_string()],
+        astroport_router: addrs.astroport_router.to_string(),
     };
 
     let vault_addr = app
@@ -480,6 +487,7 @@ fn test_multi_denom_deposit_price_processing() {
                 price_usd: decimal(5),
             },
         ],
+        None,
     );
 
     // Should have processed 1 deposit (containing multiple coins)
@@ -553,6 +561,7 @@ fn test_update_prices_and_process_deposits() {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
+        None,
     );
 
     let expected_price = decimal(10).to_string();
@@ -631,6 +640,7 @@ fn test_share_issuance_precision() {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
+        None,
     );
 
     let deposit_one_event =
@@ -673,6 +683,7 @@ fn test_share_issuance_precision() {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
+        None,
     );
 
     let deposit_two_event =
@@ -748,7 +759,7 @@ fn test_update_prices_rejects_zero_price() {
                     denom: DENOM_ATOM.to_string(),
                     price_usd: Decimal256::zero(),
                 }],
-                strategy: None,
+                swap_operations: None,
             }),
             &[],
         )
@@ -799,6 +810,7 @@ fn test_multi_denom_price_updates_with_pending_handling() {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
+        None,
     );
 
     assert!(
@@ -854,6 +866,7 @@ fn test_multi_denom_price_updates_with_pending_handling() {
                 price_usd: decimal(5),
             },
         ],
+        None,
     );
 
     assert!(
@@ -943,6 +956,7 @@ fn test_price_volatility_updates() {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
+        None,
     );
     let initial_event =
         find_event_with_attr(&initial_res.events, "deposit_processed", "deposit_id", "1")
@@ -983,6 +997,7 @@ fn test_price_volatility_updates() {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(5),
         }],
+        None,
     );
 
     let price_event =
@@ -1091,6 +1106,7 @@ fn test_withdraw_success() {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
+        None,
     );
 
     let total_shares_before: Uint256 = app
@@ -1292,6 +1308,7 @@ fn test_multiple_deposits_and_withdrawals() {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
+        None,
     );
 
     // Check total vault value
@@ -1373,6 +1390,7 @@ fn test_vault_assets_query() {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
+        None,
     );
 
     // Check vault assets
@@ -1411,6 +1429,7 @@ fn test_price_query() {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
+        None,
     );
 
     // Check price
@@ -1478,110 +1497,4 @@ fn test_list_deposit_requests() {
         .unwrap();
     assert_eq!(deposits.len(), 1);
     assert_eq!(deposits[0].id, 2);
-}
-
-#[test]
-fn test_strategy_validation_and_rebalancing() {
-    let (mut app, vault_addr, _addrs) = proper_instantiate();
-
-    // Test 1: Invalid strategy - percentages don't sum to 100%
-    let invalid_strategy = vec![
-        DenomAllocation {
-            denom: DENOM_ATOM.to_string(),
-            percentage: Decimal256::from_str("0.6").unwrap(), // 60%
-        },
-        DenomAllocation {
-            denom: DENOM_OSMO.to_string(),
-            percentage: Decimal256::from_str("0.3").unwrap(), // 30%
-        },
-    ]; // Total: 90%, should fail
-
-    let err = app
-        .execute_contract(
-            vault_addr.clone(),
-            vault_addr.clone(),
-            &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
-                prices: vec![
-                    PriceUpdate {
-                        denom: DENOM_ATOM.to_string(),
-                        price_usd: Decimal256::from_str("10.0").unwrap(),
-                    },
-                    PriceUpdate {
-                        denom: DENOM_OSMO.to_string(),
-                        price_usd: Decimal256::from_str("5.0").unwrap(),
-                    },
-                ],
-                strategy: Some(invalid_strategy),
-            }),
-            &[],
-        )
-        .unwrap_err();
-
-    let error_str = err.to_string();
-    assert!(error_str.contains("Invalid percentages: must sum to 100%"));
-
-    // Test 2: Invalid strategy - duplicate denom
-    let duplicate_strategy = vec![
-        DenomAllocation {
-            denom: DENOM_ATOM.to_string(),
-            percentage: Decimal256::from_str("0.5").unwrap(),
-        },
-        DenomAllocation {
-            denom: DENOM_ATOM.to_string(),
-            percentage: Decimal256::from_str("0.5").unwrap(),
-        },
-    ];
-
-    let err = app
-        .execute_contract(
-            vault_addr.clone(),
-            vault_addr.clone(),
-            &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
-                prices: vec![PriceUpdate {
-                    denom: DENOM_ATOM.to_string(),
-                    price_usd: Decimal256::from_str("10.0").unwrap(),
-                }],
-                strategy: Some(duplicate_strategy),
-            }),
-            &[],
-        )
-        .unwrap_err();
-
-    let error_str = err.to_string();
-    assert!(error_str.contains("Duplicate denom") && error_str.contains(DENOM_ATOM));
-
-    // Test 3: Valid strategy - should succeed and emit rebalancing events
-    let valid_strategy = vec![
-        DenomAllocation {
-            denom: DENOM_ATOM.to_string(),
-            percentage: Decimal256::from_str("0.6").unwrap(), // 60%
-        },
-        DenomAllocation {
-            denom: DENOM_OSMO.to_string(),
-            percentage: Decimal256::from_str("0.4").unwrap(), // 40%
-        },
-    ]; // Total: 100%
-
-    // Test 3: Valid strategy - should succeed without errors
-    // Just test that the strategy validation passes without overflow
-    let _response = app
-        .execute_contract(
-            vault_addr.clone(),
-            vault_addr.clone(),
-            &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
-                prices: vec![
-                    PriceUpdate {
-                        denom: DENOM_ATOM.to_string(),
-                        price_usd: Decimal256::from_str("10.0").unwrap(),
-                    },
-                    PriceUpdate {
-                        denom: DENOM_OSMO.to_string(),
-                        price_usd: Decimal256::from_str("5.0").unwrap(),
-                    },
-                ],
-                strategy: Some(valid_strategy),
-            }),
-            &[],
-        )
-        .unwrap();
 }

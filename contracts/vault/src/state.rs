@@ -1,11 +1,11 @@
 use bincode::error::{DecodeError, EncodeError};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Coin, Decimal256, Uint256, Uint64};
-use cw_storage_plus::{Item, Map};
+use cw_storage_plus::{Deque, Item, Map};
 use serde::{Deserialize, Serialize};
 use wavs_types::contracts::cosmwasm::service_handler::{WavsEnvelope, WavsSignatureData};
 
-use crate::msg::{DenomAllocation, PriceUpdate};
+use crate::{astroport::SwapOperations, msg::PriceUpdate};
 
 #[cw_serde]
 pub struct DepositRequest {
@@ -21,6 +21,12 @@ pub enum DepositState {
     Completed { value_usd: Decimal256 },
 }
 
+#[cw_serde]
+pub struct TradeInfo {
+    pub in_coin: Coin,
+    pub out_denom: String,
+}
+
 // Vault
 pub const VAULT_VALUE_DEPOSITED: Item<Decimal256> = Item::new("vault_value_deposited");
 pub const TOTAL_SHARES: Item<Uint256> = Item::new("total_shares");
@@ -30,6 +36,8 @@ pub const VAULT_ASSETS: Map<String, Uint256> = Map::new("vault_assets");
 pub const DEPOSIT_ID_COUNTER: Item<u64> = Item::new("deposit_id_counter");
 pub const USER_SHARES: Map<String, Uint256> = Map::new("user_shares");
 pub const PRICES: Map<String, Decimal256> = Map::new("prices"); // denom -> price_usd
+pub const ASTROPORT_ROUTER: Item<Addr> = Item::new("astroport_router");
+pub const TRADE_TRACKER: Deque<TradeInfo> = Deque::new("trade_tracker");
 
 // WAVS
 pub const SERVICE_MANAGER: Item<Addr> = Item::new("service-manager");
@@ -40,7 +48,7 @@ pub const SIGNATURE_DATA: Map<Uint64, WavsSignatureData> = Map::new("signature-d
 pub struct MessageWithId {
     pub trigger_id: Uint64,
     pub prices: Vec<PriceUpdate>,
-    pub strategy: Option<Vec<DenomAllocation>>,
+    pub swap_operations: Option<Vec<SwapOperations>>,
 }
 
 impl MessageWithId {

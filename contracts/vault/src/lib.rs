@@ -1,31 +1,39 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+    from_json, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdError,
+    StdResult, Uint256,
 };
 use cw2::set_contract_version;
 use wavs_types::contracts::cosmwasm::service_handler::{
     ServiceHandlerExecuteMessages, ServiceHandlerQueryMessages,
 };
 
+use crate::astroport::SwapResponseData;
 use crate::error::ContractError;
+use crate::execute::calculate_vault_usd_value;
 use crate::msg::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, VaultExecuteMsg, VaultQueryMsg,
 };
-use crate::state::{DEPOSIT_ID_COUNTER, TOTAL_SHARES, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS};
+use crate::state::{
+    ASTROPORT_ROUTER, DEPOSIT_ID_COUNTER, TOTAL_SHARES, TRADE_TRACKER, VAULT_ASSETS,
+    VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
+};
 
+mod astroport;
 mod error;
 mod execute;
 mod msg;
 mod query;
 mod state;
-mod utils;
 
 #[cfg(test)]
 mod tests;
 
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+const REPLY_TRACKER_ID: u64 = 1u64;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -57,8 +65,12 @@ pub fn instantiate(
     let service_manager = deps.api.addr_validate(&msg.service_manager)?;
     state::SERVICE_MANAGER.save(deps.storage, &service_manager)?;
 
+    let astroport_router = deps.api.addr_validate(&msg.astroport_router)?;
+    ASTROPORT_ROUTER.save(deps.storage, &astroport_router)?;
+
     Ok(Response::new()
         .add_attribute("method", "instantiate")
+        .add_attribute("astroport_router", astroport_router)
         .add_attributes(ownership.into_attributes()))
 }
 
@@ -76,9 +88,10 @@ pub fn execute(
             VaultExecuteMsg::UpdateWhitelist { to_add, to_remove } => {
                 execute::update_whitelist(deps, env, info, to_add, to_remove)
             }
-            VaultExecuteMsg::UpdatePrices { prices, strategy } => {
-                execute::update_prices(deps, env, info, prices, strategy)
-            }
+            VaultExecuteMsg::UpdatePrices {
+                prices,
+                swap_operations,
+            } => execute::update_prices(deps, env, info, prices, swap_operations),
             VaultExecuteMsg::UpdateOwnership(action) => {
                 let ownership =
                     cw_ownable::update_ownership(deps, &env.block, &info.sender, action.clone())?;
@@ -96,8 +109,48 @@ pub fn execute(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(_deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
-    Err(ContractError::UnknownReplyId { id: msg.id })
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
+    match msg.id {
+        REPLY_TRACKER_ID => {
+            let response = msg.result.into_result().map_err(StdError::msg)?;
+
+            if let Some(trade_info) = TRADE_TRACKER.pop_front(deps.storage)? {
+                #[allow(deprecated)]
+                let SwapResponseData { return_amount } = from_json(
+                    response
+                        .data
+                        .ok_or(StdError::msg("No response data given"))?,
+                )?;
+
+                // Update balances
+                VAULT_ASSETS.update::<_, ContractError>(
+                    deps.storage,
+                    trade_info.out_denom,
+                    |x| {
+                        Ok(x.unwrap_or_default()
+                            .checked_add(Uint256::from(return_amount))?)
+                    },
+                )?;
+                VAULT_ASSETS.update::<_, ContractError>(
+                    deps.storage,
+                    trade_info.in_coin.denom,
+                    |x| {
+                        Ok(x.unwrap_or_default()
+                            .checked_sub(trade_info.in_coin.amount)?)
+                    },
+                )?;
+
+                // Once all operations are completed, then calculate vault value again
+                if TRADE_TRACKER.is_empty(deps.storage)? {
+                    let updated_vault_value = calculate_vault_usd_value(deps.storage)?;
+                    VAULT_VALUE_DEPOSITED.save(deps.storage, &updated_vault_value)?;
+                }
+            }
+
+            Ok(Response::new())
+        }
+        _ => Err(ContractError::UnknownReplyId { id: msg.id }),
+    }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

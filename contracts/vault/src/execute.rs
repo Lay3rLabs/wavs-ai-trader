@@ -1,19 +1,22 @@
 use cosmwasm_std::{
     ensure_eq, to_json_binary, BankMsg, Coin, CosmosMsg, Decimal256, DepsMut, Env, MessageInfo,
-    Response, Uint256, WasmMsg,
+    Response, SubMsg, Uint256, WasmMsg,
 };
+use serde_json::json;
 use wavs_types::contracts::cosmwasm::service_handler::{WavsEnvelope, WavsSignatureData};
 use wavs_types::contracts::cosmwasm::service_manager::{
     ServiceManagerQueryMessages, WavsValidateResult,
 };
 
+use crate::astroport::{SwapOperation, SwapOperations};
 use crate::error::ContractError;
-use crate::msg::{DenomAllocation, ExecuteMsg, PriceUpdate, VaultExecuteMsg};
+use crate::msg::{ExecuteMsg, PriceUpdate, VaultExecuteMsg};
 use crate::state::{
-    self, DepositRequest, DepositState, MessageWithId, DEPOSIT_ID_COUNTER, DEPOSIT_REQUESTS,
-    PRICES, TOTAL_SHARES, USER_SHARES, VAULT_ASSETS, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
+    self, DepositRequest, DepositState, MessageWithId, TradeInfo, ASTROPORT_ROUTER,
+    DEPOSIT_ID_COUNTER, DEPOSIT_REQUESTS, PRICES, TOTAL_SHARES, TRADE_TRACKER, USER_SHARES,
+    VAULT_ASSETS, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
 };
-use crate::utils::validate_strategy;
+use crate::REPLY_TRACKER_ID;
 
 pub fn deposit(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
     // Validate that funds are provided
@@ -219,7 +222,7 @@ pub fn update_prices(
     env: Env,
     info: MessageInfo,
     prices: Vec<PriceUpdate>,
-    strategy: Option<Vec<DenomAllocation>>,
+    swap_operations: Option<Vec<SwapOperations>>,
 ) -> Result<Response, ContractError> {
     ensure_eq!(
         info.sender,
@@ -228,6 +231,7 @@ pub fn update_prices(
     );
 
     let mut events = Vec::new();
+    let mut msgs = Vec::new();
 
     // Update all provided prices
     for price_update in prices {
@@ -258,23 +262,12 @@ pub fn update_prices(
         );
     }
 
-    // Validate and process strategy if provided
-    if let Some(strategy) = &strategy {
-        validate_strategy(deps.storage, strategy)?;
-    }
-
     // Calculate new total vault value based on current prices
     let new_vault_value = calculate_vault_usd_value(deps.storage)?;
 
     // Process all pending deposits
     let (processed_deposits, final_vault_value) =
         process_pending_deposits(deps.storage, new_vault_value)?;
-
-    // Execute rebalancing if strategy is provided
-    if let Some(strategy) = &strategy {
-        let rebalance_events = execute_rebalancing(deps.storage, strategy, final_vault_value)?;
-        events.extend(rebalance_events);
-    }
 
     // Update the stored vault value to include all processed deposits
     VAULT_VALUE_DEPOSITED.save(deps.storage, &final_vault_value)?;
@@ -291,7 +284,54 @@ pub fn update_prices(
         );
     }
 
+    // Execute rebalancing at the end
+    if let Some(swap_operations) = swap_operations {
+        if !swap_operations.is_empty() {
+            let router = ASTROPORT_ROUTER.load(deps.storage)?;
+
+            events.push(
+                cosmwasm_std::Event::new("rebalancing_started")
+                    .add_attribute("swap_count", swap_operations.len().to_string()),
+            );
+            for swap_operations in swap_operations {
+                let target_denom = match swap_operations.operations.last().unwrap() {
+                    SwapOperation::NativeSwap { .. } => unimplemented!(), // Not handled in router either
+                    SwapOperation::AstroSwap {
+                        offer_asset_info: _,
+                        ask_asset_info,
+                    } => match ask_asset_info {
+                        crate::astroport::AssetInfo::Token { contract_addr: _ } => unimplemented!(), // Restricting to native tokens only
+                        crate::astroport::AssetInfo::NativeToken { denom } => denom,
+                    },
+                };
+                TRADE_TRACKER.push_back(
+                    deps.storage,
+                    &TradeInfo {
+                        in_coin: swap_operations.coin.clone(),
+                        out_denom: target_denom.to_owned(),
+                    },
+                )?;
+
+                msgs.push(SubMsg::reply_always(
+                    WasmMsg::Execute {
+                        contract_addr: router.to_string(),
+                        msg: to_json_binary(&json!({
+                            "execute_swap_operations": {
+                                "operations": swap_operations.operations,
+                                "minimum_receive": swap_operations.minimum_receive,
+                                "max_spread": swap_operations.max_spread
+                            }
+                        }))?,
+                        funds: vec![swap_operations.coin],
+                    },
+                    REPLY_TRACKER_ID,
+                ))
+            }
+        }
+    }
+
     Ok(Response::new()
+        .add_submessages(msgs)
         .add_events(events)
         .add_attribute("method", "update_prices")
         .add_attribute("updated_by", info.sender)
@@ -300,7 +340,7 @@ pub fn update_prices(
 }
 
 // Calculate the total USD value of all vault assets based on current prices
-fn calculate_vault_usd_value(
+pub fn calculate_vault_usd_value(
     storage: &mut dyn cosmwasm_std::Storage,
 ) -> Result<Decimal256, ContractError> {
     let mut total_value = Decimal256::zero();
@@ -473,104 +513,21 @@ pub fn handle_signed_envelope(
         .into_std()?;
 
     let MessageWithId {
-        prices, strategy, ..
+        prices,
+        swap_operations,
+        ..
     } = state::save_envelope(deps.storage, envelope, signature_data)?;
 
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: env.contract.address.to_string(),
         msg: to_json_binary(&ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
             prices,
-            strategy,
+            swap_operations,
         }))?,
         funds: vec![],
     });
 
     Ok(Response::new().add_message(msg))
-}
-
-// Execute rebalancing based on strategy percentages
-fn execute_rebalancing(
-    storage: &mut dyn cosmwasm_std::Storage,
-    strategy: &[DenomAllocation],
-    vault_value: Decimal256,
-) -> Result<Vec<cosmwasm_std::Event>, ContractError> {
-    let mut events = Vec::new();
-    let mut target_allocations = std::collections::HashMap::new();
-
-    // Calculate target USD allocations for each denom
-    for allocation in strategy {
-        let target_value = vault_value.checked_mul(allocation.percentage)?;
-        target_allocations.insert(allocation.denom.clone(), target_value);
-    }
-
-    // Get current vault assets and their USD values
-    let mut current_allocations = std::collections::HashMap::new();
-    for item in VAULT_ASSETS.range(storage, None, None, cosmwasm_std::Order::Ascending) {
-        let (denom, balance) = item?;
-
-        if let Some(price_usd) = PRICES.may_load(storage, denom.clone())? {
-            let balance_decimal = Decimal256::from_atomics(balance, 0)?;
-            let current_value = price_usd.checked_mul(balance_decimal)?;
-            current_allocations.insert(denom, (balance, current_value));
-        }
-    }
-
-    // Calculate required trades for rebalancing
-    for (denom, target_value) in &target_allocations {
-        let default_allocation = (Uint256::zero(), Decimal256::zero());
-        let (current_balance, current_value) = current_allocations
-            .get(denom)
-            .unwrap_or(&default_allocation);
-
-        if current_value < target_value {
-            // Need to buy more of this denom
-            let needed_value = target_value.checked_sub(*current_value)?;
-            if let Some(price_usd) = PRICES.may_load(storage, denom.clone())? {
-                let needed_amount = needed_value.checked_div(price_usd)?.to_uint_floor();
-
-                if needed_amount > Uint256::zero() {
-                    events.push(
-                        cosmwasm_std::Event::new("rebalance_buy")
-                            .add_attribute("denom", denom)
-                            .add_attribute("target_value", target_value.to_string())
-                            .add_attribute("current_value", current_value.to_string())
-                            .add_attribute("needed_amount", needed_amount.to_string()),
-                    );
-                }
-            }
-        } else if current_value > target_value {
-            // Need to sell some of this denom
-            let excess_value = current_value.checked_sub(*target_value)?;
-            if let Some(price_usd) = PRICES.may_load(storage, denom.clone())? {
-                let excess_amount = excess_value.checked_div(price_usd)?.to_uint_floor();
-
-                if excess_amount > Uint256::zero() && excess_amount < *current_balance {
-                    events.push(
-                        cosmwasm_std::Event::new("rebalance_sell")
-                            .add_attribute("denom", denom)
-                            .add_attribute("target_value", target_value.to_string())
-                            .add_attribute("current_value", current_value.to_string())
-                            .add_attribute("excess_amount", excess_amount.to_string()),
-                    );
-                }
-            }
-        }
-    }
-
-    // Note: This is a simplified rebalancing implementation that only emits events.
-    // This would involve:
-    // 1. Creating swap messages for the DEX
-    // 2. Handling slippage and fees
-    // 3. Ensuring sufficient liquidity
-    // 4. Managing the order of trades to minimize value loss
-
-    events.push(
-        cosmwasm_std::Event::new("rebalance_completed")
-            .add_attribute("vault_value", vault_value.to_string())
-            .add_attribute("target_allocations", target_allocations.len().to_string()),
-    );
-
-    Ok(events)
 }
 
 // Helper struct to track processed deposit information for events
