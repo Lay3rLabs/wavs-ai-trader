@@ -1,0 +1,26 @@
+[package]
+name = "ai-portfolio-aggregator"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[package.metadata.component]
+package = "component:ai-portfolio-aggregator"
+target = "wavs:operator/wavs-world@=2.0.0"
+
+[dependencies]
+layer-climb = { workspace = true }
+serde = { workspace = true }
+bincode = { workspace = true }
+anyhow = { workspace = true }
+wstd = { workspace = true }
+wavs-wasi-utils = { workspace = true }
+wit-bindgen-rt = { workspace = true }
+thiserror = { workspace = true }
+cosmwasm-std = { workspace = true }
+wavs-types = { workspace = true }

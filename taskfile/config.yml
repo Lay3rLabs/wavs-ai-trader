@@ -1,7 +1,7 @@
 version: "3"
 
 vars:
-  ALL_COMPONENTS: ["operator", "aggregator"]
+  ALL_COMPONENTS: ["ai-portfolio-operator", "ai-portfolio-aggregator"]
   ALL_CONTRACTS: ["vault"]
 
   REPO_ROOT:

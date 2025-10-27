@@ -1,0 +1,123 @@
+[workspace]
+members = ["components/*", "contracts/*"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+version = "0.0.1"
+license = "GPL-3.0-or-later"
+authors = ["Layer Labs (Cayman)"]
+repository = "https://github.com/Lay3rLabs/wavs-ai-trader.git"
+rust-version = "1.90.0"
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = "abort"
+incremental = false
+overflow-checks = true
+
+[workspace.dependencies]
+# WAVS
+wavs-types = { version = "=2.0.0-alpha.7", default-features = false, features = [
+    "cosmwasm",
+] }
+wavs-types-full = { package = "wavs-types", version = "=2.0.0-alpha.7", features = [
+    "full",
+] }
+wavs-wasi-utils = "0.5.1"
+
+# Error handling
+anyhow = "1.0.98"
+thiserror = "2.0.12"
+
+# Async
+tokio = { version = "1.47.1", features = ["full"] }
+async-trait = "0.1.88"
+futures = "0.3.31"
+
+# http
+reqwest = { version = "0.12", default-features = false, features = [
+    "json",
+    "rustls-tls-webpki-roots",
+] }
+
+# pool management
+deadpool = "0.12.2"
+
+# hashing / cipher
+sha2 = "0.10.9"
+const-hex = "1.14.1"
+ripemd = "0.1.3"
+rustls = { version = "0.23", features = ["aws_lc_rs"] }
+ed25519-zebra = { version = "4.1.0", default-features = false, features = [
+    "alloc",
+] }
+k256 = { version = "0.13.4", default-features = false, features = ["ecdsa"] }
+
+# Serialization
+serde = { version = "1.0.219", features = ["derive"] }
+bincode = { version = "2.0.1", features = ["serde"] }
+toml = "0.9.5"
+serde_json = "1.0.142"
+
+# Layer-climb
+layer-climb = "0.8.3"
+layer-climb-core = "0.8.3"
+layer-climb-address = { version = "0.8.3", features = [
+    "cw-storage",
+    "openapi",
+] }
+layer-climb-config = "0.8.3"
+layer-climb-cli = "0.8.3"
+layer-climb-proto = "0.8.3"
+
+# CosmWasm
+cosmwasm-schema = "3.0.2"
+cosmwasm-std = { version = "=3.0.2", features = ["cosmwasm_2_0"] }
+cw-storage-plus = "3.0.1"
+cw2 = "3.0.0"
+cw-multi-test = { version = "3.0.1", features = [
+    "staking",
+    "stargate",
+    "cosmwasm_2_0",
+] }
+cw-utils = "3.0.0"
+cw-ownable = { git = "https://github.com/permissionlessweb/cw-plus-plus.git" }
+
+# JSON
+schemars = "1.0.4"
+serde-json-wasm = "1.0.1"
+
+# WASI
+wstd = "0.5.3"
+wit-bindgen-rt = "0.43.0"
+
+# CLI
+clap = { version = "4.5.44", features = ["derive", "env", "string"] }
+dotenvy = "0.15.7"
+
+# Randomness
+rand = { version = "0.9.2" }
+
+# Alloy
+alloy-primitives = { version = "1.3.0" }
+alloy-sol-macro = "1.3.0"
+alloy-sol-types = "1.3.0"
+alloy-signer = "1.0.28"
+
+# Logging
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+
+# Server
+axum = { version = "0.8.6", features = ["macros"] }
+axum-extra = { version = "0.10.3", features = ["typed-header"] }
+http-body-util = "0.1.3"
+tower-http = { version = "0.6.6", features = ["cors", "trace"] }
+tower = { version = "0.5.2", features = ["util"] }
+url = "2.5.7"

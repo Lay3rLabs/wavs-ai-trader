@@ -15,7 +15,6 @@ tasks:
       - task --list-all
 
   lint:
-    dir: "contracts"
     desc: "Run code formatting and linting checks"
     cmds:
       - cargo fmt --all -- --check
