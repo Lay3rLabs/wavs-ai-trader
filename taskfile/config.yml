@@ -1,0 +1,40 @@
+version: "3"
+
+vars:
+  ALL_COMPONENTS: ["operator", "aggregator"]
+  ALL_CONTRACTS: ["vault"]
+
+  REPO_ROOT:
+    # find the root directory of the repository by looking for the `.git` directory.
+    sh: git rev-parse --show-toplevel
+  ARCH:
+    sh: uname -m
+
+  BACKEND_DIR: '{{joinPath .REPO_ROOT "backend"}}'
+  WAVS_HOME_DIR: '{{joinPath .BACKEND_DIR "wavs-home"}}'
+  STARSHIP_DIR: '{{joinPath .BACKEND_DIR "starship"}}'
+  STARSHIP_CHAIN_FILE: '{{joinPath .STARSHIP_DIR "chains.yml"}}'
+  DOCKER_DIR: '{{joinPath .BACKEND_DIR "docker"}}'
+  ARTIFACTS_PATH: '{{joinPath .REPO_ROOT "builds"}}'
+  COMPONENTS_ARTIFACTS_PATH: '{{joinPath .ARTIFACTS_PATH "components"}}'
+  CONTRACTS_ARTIFACTS_PATH: '{{joinPath .ARTIFACTS_PATH "contracts"}}'
+  CW_OPTIMIZER_CACHE: "wavs-ai-trader"
+
+  # Changing this requires a change in `packages/tests/on-chain/src/client/config.rs`
+  WAVS_BASE_PORT: 8123 # Base port for WAVS, subsequent ports will be incremented by 1 for each instance
+  # Changing this requires a change in `packages/tests/on-chain/src/client/config.rs`
+  WAVS_AGGREGATOR_PORT: 8200
+
+  DOCKER_SUDO:
+    sh: |
+      if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+        echo ""
+      else
+        echo "sudo"
+      fi
+  HEALTH_CHECK_TIMEOUT: 5 # seconds to wait for service health checks
+  COSMWASM_OPTIMIZER_IMAGE: 'cosmwasm/optimizer{{if eq .ARCH "arm64"}}-arm64{{end}}:0.17.0'
+  WAVS_DOCKER_IMAGE: 'ghcr.io/lay3rlabs/wavs:2.0.0-alpha.7{{if eq .ARCH "arm64"}}-arm64{{end}}'
+  WAVS_CW_MIDDLEWARE_DOCKER_IMAGE: 'ghcr.io/lay3rlabs/cw-middleware:0.2.0-alpha.5{{if eq .ARCH "arm64"}}-arm64{{end}}'
+  JAEGER_DOCKER_IMAGE: "jaegertracing/jaeger:2.5.0"
+  PROMETHEUS_DOCKER_IMAGE: "prom/prometheus:v3.3.0"
