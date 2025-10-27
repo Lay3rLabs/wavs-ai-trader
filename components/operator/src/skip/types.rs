@@ -24,8 +24,7 @@ pub struct RoutePlan {
     pub required_chain_addresses: Vec<String>,
     pub estimated_route_duration_seconds: u64,
 
-    // present in your sample alongside swap_venues
-    pub swap_venue: SwapVenue, // single
+    pub swap_venue: SwapVenue,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
