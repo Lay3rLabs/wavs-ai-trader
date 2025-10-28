@@ -16,14 +16,19 @@ vars:
   WAVS_HOME_DIR: '{{joinPath .BACKEND_DIR "wavs-home"}}'
   CHAINS_DIR: '{{joinPath .BACKEND_DIR "chains"}}'
   DOCKER_DIR: '{{joinPath .BACKEND_DIR "docker"}}'
-  WIT_DIR: '{{joinPath .REPO_ROOT "wit"}}'
+  MIDDLEWARE_DIR: '{{joinPath .BACKEND_DIR "middleware"}}'
   ARTIFACTS_PATH: '{{joinPath .REPO_ROOT "builds"}}'
   COMPONENTS_ARTIFACTS_PATH: '{{joinPath .ARTIFACTS_PATH "components"}}'
   CONTRACTS_ARTIFACTS_PATH: '{{joinPath .ARTIFACTS_PATH "contracts"}}'
+  CHAIN_KEY: "cosmos:neutron-1"
   SERVER_ARTIFACTS_PATH: '{{joinPath .ARTIFACTS_PATH "server"}}'
+  DEPLOYMENTS_ARTIFACTS_PATH: '{{joinPath .ARTIFACTS_PATH "deployments"}}'
   SERVER_PID_FILE: '{{joinPath .SERVER_ARTIFACTS_PATH "server.pid"}}'
   SERVER_LOG_FILE: '{{joinPath .SERVER_ARTIFACTS_PATH "server.log"}}'
-  CW_OPTIMIZER_CACHE: "wavs-ai-trader"
+  MIDDLEWARE_ENV_FILE: '{{joinPath .MIDDLEWARE_DIR "middleware-env"}}'
+  CONTRACT_PREFIX: "tg_contract"
+  COMPONENT_PREFIX: "tg_component"
+  CW_OPTIMIZER_CACHE: "wavs-telegram-payments"
 
   # Changing this requires a change in `packages/tests/on-chain/src/client/config.rs`
   WAVS_BASE_PORT: 8123 # Base port for WAVS, subsequent ports will be incremented by 1 for each instance
@@ -42,7 +47,7 @@ vars:
   HEALTH_CHECK_TIMEOUT: 5 # seconds to wait for service health checks
   COSMWASM_OPTIMIZER_IMAGE: 'cosmwasm/optimizer{{if eq .ARCH "arm64"}}-arm64{{end}}:0.17.0'
   WAVS_DOCKER_IMAGE: 'ghcr.io/lay3rlabs/wavs:2.0.0-alpha.7{{if eq .ARCH "arm64"}}-arm64{{end}}'
-  WAVS_CW_MIDDLEWARE_DOCKER_IMAGE: 'ghcr.io/lay3rlabs/cw-middleware:0.2.0-alpha.5{{if eq .ARCH "arm64"}}-arm64{{end}}'
+  WAVS_CW_MIDDLEWARE_DOCKER_IMAGE: 'ghcr.io/lay3rlabs/cw-middleware:0.2.0-alpha.6{{if eq .ARCH "arm64"}}-arm64{{end}}'
   JAEGER_DOCKER_IMAGE: "jaegertracing/jaeger:2.5.0"
   PROMETHEUS_DOCKER_IMAGE: "prom/prometheus:v3.3.0"
   IPFS_DOCKER_IMAGE: "ipfs/kubo:v0.38.1"

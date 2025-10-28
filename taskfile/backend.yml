@@ -10,7 +10,10 @@ env:
   COMPOSE_WAVS_DOCKER_IMAGE: "{{.WAVS_DOCKER_IMAGE}}"
   COMPOSE_JAEGER_DOCKER_IMAGE: "{{.JAEGER_DOCKER_IMAGE}}"
   COMPOSE_PROMETHEUS_DOCKER_IMAGE: "{{.PROMETHEUS_DOCKER_IMAGE}}"
+  COMPOSE_IPFS_DOCKER_IMAGE: "{{.IPFS_DOCKER_IMAGE}}"
   COMPOSE_WAVS_HOME: "{{.WAVS_HOME_DIR}}"
+  COMPOSE_IPFS_GATEWAY_PORT: "{{.IPFS_GATEWAY_PORT}}"
+  COMPOSE_IPFS_API_PORT: "{{.IPFS_API_PORT}}"
 
 tasks:
   start-all:
@@ -20,10 +23,40 @@ tasks:
       [
         { task: start-wavs, vars: { OPERATORS: "{{.OPERATORS}}" } },
         { task: start-chains },
+        { task: start-ipfs },
       ]
 
   stop-all:
-    deps: [stop-wavs, stop-chains]
+    deps: [stop-wavs, stop-chains, stop-ipfs]
+
+  ###################################################################
+  ######################## IPFS #####################################
+  ###################################################################
+  #
+  start-ipfs:
+    preconditions:
+      - test -f "{{.DOCKER_DIR}}/ipfs.yml"
+      - sh: "command -v docker"
+        msg: "Docker is required but not installed"
+    # Pull the latest images before starting
+    deps: [docker-pull-ipfs]
+    cmds:
+      - |
+        echo "Starting IPFS node with API on port {{.IPFS_API_PORT}} and Gateway on port {{.IPFS_GATEWAY_PORT}}"
+      - |
+        {{.DOCKER_SUDO}} docker compose --file "{{.DOCKER_DIR}}/ipfs.yml" up --force-recreate -d
+
+  docker-pull-ipfs:
+    internal: true
+    cmds:
+      - |
+        {{.DOCKER_SUDO}} docker compose --file "{{.DOCKER_DIR}}/ipfs.yml" pull
+
+  stop-ipfs:
+    cmds:
+      - echo "Stopping IPFS"
+      - |
+        {{.DOCKER_SUDO}} docker compose --file "{{.DOCKER_DIR}}/ipfs.yml" down --remove-orphans --volumes
 
   ###################################################################
   ######################## CHAINS ###################################
