@@ -8,6 +8,7 @@ includes:
   backend: ./taskfile/backend.yml
   deploy: ./taskfile/deploy.yml
   test: ./taskfile/test.yml
+  cli: ./taskfile/cli.yml
 
 tasks:
   default:
