@@ -13,7 +13,7 @@ prometheus = "http://localhost:9090"
 # This must match the starship config in `backend/starship/chains.yml`
 [default.chains.cosmos.neutron-1]
 bech32_prefix = "neutron"
-rpc_endpoint = "http://localhost:27657"
+rpc_endpoint = "http://localhost:26657"
 grpc_endpoint = "http://localhost:9090"
 gas_price = 0.025
 gas_denom = "untrn"
