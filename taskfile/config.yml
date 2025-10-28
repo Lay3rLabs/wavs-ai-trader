@@ -1,8 +1,10 @@
 version: "3"
 
 vars:
-  ALL_COMPONENTS: ["ai-portfolio-operator", "ai-portfolio-aggregator"]
+  ALL_COMPONENTS: ["operator", "aggregator"]
   ALL_CONTRACTS: ["vault"]
+  COMPONENT_WITS_OPERATOR: ["wavs:operator@2.0.0"]
+  COMPONENT_WITS_AGGREGATOR: ["wavs:aggregator@2.0.0"]
 
   REPO_ROOT:
     # find the root directory of the repository by looking for the `.git` directory.
@@ -14,6 +16,7 @@ vars:
   WAVS_HOME_DIR: '{{joinPath .BACKEND_DIR "wavs-home"}}'
   CHAINS_DIR: '{{joinPath .BACKEND_DIR "chains"}}'
   DOCKER_DIR: '{{joinPath .BACKEND_DIR "docker"}}'
+  WIT_DIR: '{{joinPath .REPO_ROOT "wit"}}'
   ARTIFACTS_PATH: '{{joinPath .REPO_ROOT "builds"}}'
   COMPONENTS_ARTIFACTS_PATH: '{{joinPath .ARTIFACTS_PATH "components"}}'
   CONTRACTS_ARTIFACTS_PATH: '{{joinPath .ARTIFACTS_PATH "contracts"}}'
