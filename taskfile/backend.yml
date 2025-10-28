@@ -19,12 +19,10 @@ tasks:
   start-all:
     vars:
       OPERATORS: '{{.OPERATORS | default "1"}}'
-    deps:
-      [
-        { task: start-wavs, vars: { OPERATORS: "{{.OPERATORS}}" } },
-        { task: start-chains },
-        { task: start-ipfs },
-      ]
+    deps: [{ task: start-chains }, { task: start-ipfs }]
+    cmds:
+      - task: start-wavs
+        VARS: { OPERATORS: "{{.OPERATORS}}" }
 
   stop-all:
     deps: [stop-wavs, stop-chains, stop-ipfs]

@@ -105,6 +105,7 @@ neutrond collect-gentxs
 echo "[entrypoint] enable API + swagger"
 sed -i 's/enable = false/enable = true/' "$HOME_DIR/config/app.toml"
 sed -i 's/swagger = false/swagger = true/' "$HOME_DIR/config/app.toml"
+sed -i 's/address = "localhost:9090"/address = "0.0.0.0:9090"/' "$HOME_DIR/config/app.toml"
 
 echo "[entrypoint] starting node..."
 exec neutrond start --minimum-gas-prices=0.025untrn --rpc.laddr=tcp://0.0.0.0:26657
