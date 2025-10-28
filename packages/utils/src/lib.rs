@@ -1,4 +1,5 @@
 pub mod addr;
+pub mod addresses;
 
 pub mod client;
 cfg_if::cfg_if! {

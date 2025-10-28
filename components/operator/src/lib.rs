@@ -1,6 +1,5 @@
 wit_bindgen::generate!({
     world: "wavs-world",
-    path: "../../wit/operator/wit",
     generate_all,
 });
 

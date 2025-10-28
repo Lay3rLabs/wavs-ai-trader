@@ -1,6 +1,5 @@
 wit_bindgen::generate!({
     world: "aggregator-world",
-    path: "../../wit/aggregator/wit",
     generate_all,
 });
 
