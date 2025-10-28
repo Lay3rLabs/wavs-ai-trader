@@ -9,10 +9,6 @@ repository.workspace = true
 [lib]
 crate-type = ["cdylib"]
 
-[package.metadata.component]
-package = "component:ai-portfolio-operator"
-target = "wavs:operator@=2.0.0"
-
 [dependencies]
 layer-climb = { workspace = true }
 serde = { workspace = true }
@@ -26,3 +22,4 @@ thiserror = { workspace = true }
 cosmwasm-std = { workspace = true }
 wavs-types = { workspace = true }
 vault = { workspace = true }
+wit-bindgen = { workspace = true }

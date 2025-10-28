@@ -1,0 +1,40 @@
+version: "3"
+
+tasks:
+  contract-upload:
+    requires:
+      vars: [CONTRACT, FILENAME]
+    cmds:
+      - cd packages/cli && cargo run upload-contract --kind {{.CONTRACT}} --output-filename={{.FILENAME}}
+
+  contract-instantiate-payments:
+    requires:
+      vars: [FILENAME, CODE_ID]
+    cmds:
+      - cd packages/cli && cargo run instantiate-payments --output-filename={{.FILENAME}} --code-id={{.CODE_ID}}
+
+  tap-faucet:
+    cmds:
+      - cd packages/cli && cargo run faucet-tap
+
+  upload-component:
+    requires:
+      vars: [COMPONENT, FILENAME]
+    vars:
+      IPFS_API_URL: "http://127.0.0.1:{{.IPFS_API_PORT}}"
+      IPFS_GATEWAY_URL: "http://127.0.0.1:{{.IPFS_GATEWAY_PORT}}"
+    cmds:
+      - cd packages/cli && cargo run upload-component --kind {{.COMPONENT}} --output-filename={{.FILENAME}} --ipfs-api-url {{.IPFS_API_URL}} --ipfs-gateway-url {{.IPFS_GATEWAY_URL}}
+
+  upload-service:
+    requires:
+      vars:
+        [
+          TRIGGER_ADDR,
+          SERVICE_HANDLER_ADDR,
+          SERVICE_MANAGER_ADDR,
+          OPERATOR_COMPONENT_URL,
+          AGGREGATOR_COMPONENT_URL,
+        ]
+    cmds:
+      - cd packages/cli && cargo run upload-service

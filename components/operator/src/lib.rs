@@ -1,24 +1,23 @@
-#[allow(warnings)]
-#[rustfmt::skip]
-mod bindings;
+wit_bindgen::generate!({
+    world: "wavs-world",
+    path: "../../wit/operator/wit",
+    generate_all,
+});
+
 mod coingecko;
 mod core;
 mod skip;
 
-use crate::{
-    bindings::{
-        host,
-        wavs::{operator::input::TriggerData, types::events::TriggerDataCron},
-        WasmResponse,
-    },
-    core::{generate_payload, TradeStrategy},
-};
-use bindings::{export, Guest, TriggerAction};
 use layer_climb::{
     prelude::{AddrKind, Address, ChainConfig, ChainId, CosmosAddr},
     querier::QueryClient,
 };
 use wstd::runtime::block_on;
+
+use crate::{
+    core::{generate_payload, TradeStrategy},
+    wavs::{operator::input::TriggerData, types::events::TriggerDataCron},
+};
 
 struct Component;
 
@@ -85,4 +84,4 @@ impl Guest for Component {
     }
 }
 
-export!(Component with_types_in bindings);
+export!(Component);

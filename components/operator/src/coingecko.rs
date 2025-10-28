@@ -48,7 +48,7 @@ impl CoinGeckoApiClient {
         let req = Request::builder()
             .method(Method::GET)
             .uri(&uri)
-            .body(wstd::io::empty())
+            .body(())
             .context("failed to build CoinGecko request")?;
 
         let response = self
@@ -61,11 +61,11 @@ impl CoinGeckoApiClient {
         let mut body = response.into_body();
 
         if !status.is_success() {
-            let bytes = body
-                .bytes()
+            let message = body
+                .str_contents()
                 .await
-                .context("failed to read CoinGecko error response")?;
-            let message = String::from_utf8(bytes).unwrap_or_else(|_| "<non-utf8 response>".into());
+                .context("failed to read CoinGecko error response")
+                .unwrap_or("<non-utf8 response>");
             anyhow::bail!("CoinGecko API returned {status}: {message}");
         }
 

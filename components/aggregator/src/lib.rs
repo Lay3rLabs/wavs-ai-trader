@@ -1,17 +1,12 @@
-#[allow(warnings)]
-#[rustfmt::skip]
-mod bindings;
+wit_bindgen::generate!({
+    world: "aggregator-world",
+    path: "../../wit/aggregator/wit",
+    generate_all,
+});
 
 use layer_climb::prelude::CosmosAddr;
 
-use crate::bindings::{
-    host,
-    wavs::{
-        aggregator::aggregator::{CosmosSubmitAction, SubmitAction},
-        types::chain::CosmosAddress,
-    },
-    AggregatorAction, AnyTxHash, Guest, Packet,
-};
+use crate::wavs::aggregator::aggregator::{CosmosAddress, CosmosSubmitAction, SubmitAction};
 
 struct Component;
 impl Guest for Component {
@@ -50,4 +45,4 @@ impl Guest for Component {
     }
 }
 
-crate::bindings::export!(Component with_types_in crate::bindings);
+export!(Component);
