@@ -40,6 +40,27 @@ pub enum CliCommand {
         #[clap(flatten)]
         args: CliArgs,
     },
+    /// Instantiate a vault contract
+    InstantiateVault {
+        /// The code ID of the vault contract
+        #[arg(long)]
+        code_id: u64,
+
+        /// Initial whitelisted denominations for the vault
+        #[arg(long, value_delimiter = ',')]
+        initial_whitelisted_denoms: Vec<String>,
+
+        /// The service manager address
+        #[arg(long)]
+        service_manager: String,
+
+        /// The Skip entry point address (if not provided, will use default for the chain)
+        #[arg(long)]
+        skip_entry_point: Option<String>,
+
+        #[clap(flatten)]
+        args: CliArgs,
+    },
 }
 
 // common args for several commands
@@ -85,7 +106,7 @@ impl CliArgs {
 #[clap(rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum ContractKind {
-    Payments,
+    Vault,
 }
 
 impl std::fmt::Display for ContractKind {
@@ -97,7 +118,7 @@ impl std::fmt::Display for ContractKind {
 impl ContractKind {
     pub fn as_str(&self) -> &str {
         match self {
-            Self::Payments => "payments",
+            Self::Vault => "vault",
         }
     }
     pub async fn wasm_bytes(&self) -> Vec<u8> {

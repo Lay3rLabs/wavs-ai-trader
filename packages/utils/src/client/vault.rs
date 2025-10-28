@@ -185,20 +185,4 @@ impl VaultExecutor {
         )
         .await
     }
-
-    /// Update prices and optionally execute swaps (internal call)
-    pub async fn update_prices(
-        &self,
-        prices: Vec<PriceInfo>,
-        swap_routes: Option<Vec<vault::SwapRoute>>,
-    ) -> Result<AnyTxResponse> {
-        self.exec(
-            &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
-                prices,
-                swap_routes,
-            }),
-            &[],
-        )
-        .await
-    }
 }

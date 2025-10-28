@@ -25,6 +25,7 @@ impl CliContext {
             CliCommand::UploadContract { args, .. } => args,
             CliCommand::FaucetTap { args, .. } => args,
             CliCommand::UploadComponent { args, .. } => args,
+            CliCommand::InstantiateVault { args, .. } => args,
         }
     }
 

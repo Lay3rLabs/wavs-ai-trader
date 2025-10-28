@@ -3,7 +3,8 @@ mod context;
 mod ipfs;
 mod output;
 
-use ai_portfolio_utils::{faucet, tracing::tracing_init};
+use ai_portfolio_utils::{addresses::skip_swap_entry_point, faucet, tracing::tracing_init};
+use vault::InstantiateMsg;
 
 use crate::{command::CliCommand, context::CliContext, ipfs::IpfsFile, output::OutputData};
 
@@ -62,6 +63,60 @@ async fn main() {
             println!(
                 "Tapped faucet for {addr} - balance before: {balance_before} balance after: {balance_after}"
             );
+        }
+        CliCommand::InstantiateVault {
+            code_id,
+            initial_whitelisted_denoms,
+            service_manager,
+            skip_entry_point,
+            args,
+        } => {
+            let client = ctx.signing_client().await.unwrap();
+
+            // Use provided skip entry point or get default for the chain
+            let skip_entry_point = match skip_entry_point {
+                Some(addr) => addr,
+                None => skip_swap_entry_point(args.chain.id.as_str())
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "No default Skip entry point address configured for chain: {}",
+                            args.chain.id
+                        )
+                    })
+                    .to_string(),
+            };
+
+            let instantiate_msg = InstantiateMsg {
+                service_manager,
+                initial_whitelisted_denoms,
+                skip_entry_point,
+            };
+
+            let (contract_address, tx_resp) = client
+                .contract_instantiate(
+                    None,
+                    code_id,
+                    "Vault Contract",
+                    &instantiate_msg,
+                    vec![],
+                    None,
+                )
+                .await
+                .unwrap();
+
+            println!(
+                "Instantiated vault contract at address: {} with tx hash: {}",
+                contract_address, tx_resp.txhash
+            );
+
+            args.output()
+                .write(OutputData::ContractInstantiate {
+                    kind: crate::command::ContractKind::Vault,
+                    address: contract_address.to_string(),
+                    tx_hash: tx_resp.txhash,
+                })
+                .await
+                .unwrap();
         }
         CliCommand::UploadComponent {
             kind,
