@@ -66,8 +66,8 @@ tasks:
 
   stop-chains:
     cmds:
-      - docker kill neutron-local || true
-      - docker rm neutron-local || true
+      - docker kill neutron-fork || true
+      - docker rm neutron-fork || true
 
   ###################################################################
   ######################## SERVER ###################################
