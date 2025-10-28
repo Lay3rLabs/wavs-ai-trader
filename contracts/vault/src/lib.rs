@@ -1,30 +1,30 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_json, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdError,
-    StdResult, Uint256,
+    to_json_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdError,
+    StdResult,
 };
 use cw2::set_contract_version;
 use wavs_types::contracts::cosmwasm::service_handler::{
     ServiceHandlerExecuteMessages, ServiceHandlerQueryMessages,
 };
 
-use crate::astroport::SwapResponseData;
 use crate::error::ContractError;
 use crate::execute::calculate_vault_usd_value;
 use crate::state::{
-    ASTROPORT_ROUTER, DEPOSIT_ID_COUNTER, TOTAL_SHARES, TRADE_TRACKER, VAULT_ASSETS,
+    DEPOSIT_ID_COUNTER, SKIP_ENTRY_POINT, TOTAL_SHARES, TRADE_TRACKER, VAULT_ASSETS,
     VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
 };
 
-mod astroport;
 mod error;
 mod execute;
 pub mod msg;
 mod query;
+mod skip_entry;
 mod state;
 
 pub use msg::*;
+pub use skip_entry::{SwapOperation, SwapRoute};
 
 #[cfg(test)]
 mod tests;
@@ -64,12 +64,12 @@ pub fn instantiate(
     let service_manager = deps.api.addr_validate(&msg.service_manager)?;
     state::SERVICE_MANAGER.save(deps.storage, &service_manager)?;
 
-    let astroport_router = deps.api.addr_validate(&msg.astroport_router)?;
-    ASTROPORT_ROUTER.save(deps.storage, &astroport_router)?;
+    let skip_entry_point = deps.api.addr_validate(&msg.skip_entry_point)?;
+    SKIP_ENTRY_POINT.save(deps.storage, &skip_entry_point)?;
 
     Ok(Response::new()
         .add_attribute("method", "instantiate")
-        .add_attribute("astroport_router", astroport_router)
+        .add_attribute("skip_entry_point", skip_entry_point)
         .add_attributes(ownership.into_attributes()))
 }
 
@@ -89,8 +89,8 @@ pub fn execute(
             }
             VaultExecuteMsg::UpdatePrices {
                 prices,
-                swap_operations,
-            } => execute::update_prices(deps, env, info, prices, swap_operations),
+                swap_routes,
+            } => execute::update_prices(deps, env, info, prices, swap_routes),
             VaultExecuteMsg::UpdateOwnership(action) => {
                 let ownership =
                     cw_ownable::update_ownership(deps, &env.block, &info.sender, action.clone())?;
@@ -108,35 +108,29 @@ pub fn execute(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
+pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
     match msg.id {
         REPLY_TRACKER_ID => {
-            let response = msg.result.into_result().map_err(StdError::msg)?;
+            msg.result.into_result().map_err(StdError::msg)?;
 
             if let Some(trade_info) = TRADE_TRACKER.pop_front(deps.storage)? {
-                #[allow(deprecated)]
-                let SwapResponseData { return_amount } = from_json(
-                    response
-                        .data
-                        .ok_or(StdError::msg("No response data given"))?,
+                let out_balance: Coin = deps
+                    .querier
+                    .query_balance(env.contract.address.clone(), trade_info.out_denom.clone())?;
+                let in_balance: Coin = deps.querier.query_balance(
+                    env.contract.address.clone(),
+                    trade_info.in_coin.denom.clone(),
                 )?;
 
-                // Update balances
                 VAULT_ASSETS.update::<_, ContractError>(
                     deps.storage,
                     trade_info.out_denom,
-                    |x| {
-                        Ok(x.unwrap_or_default()
-                            .checked_add(Uint256::from(return_amount))?)
-                    },
+                    |_| Ok(out_balance.amount),
                 )?;
                 VAULT_ASSETS.update::<_, ContractError>(
                     deps.storage,
                     trade_info.in_coin.denom,
-                    |x| {
-                        Ok(x.unwrap_or_default()
-                            .checked_sub(trade_info.in_coin.amount)?)
-                    },
+                    |_| Ok(in_balance.amount),
                 )?;
 
                 // Once all operations are completed, then calculate vault value again

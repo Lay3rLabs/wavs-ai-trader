@@ -1,4 +1,4 @@
-use crate::astroport::SwapOperations;
+use crate::skip_entry::SwapRoute;
 use bincode::error::{DecodeError, EncodeError};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Coin, Decimal256, Timestamp, Uint256};
@@ -12,7 +12,7 @@ use wavs_types::contracts::cosmwasm::service_handler::{
 pub struct InstantiateMsg {
     pub service_manager: String,
     pub initial_whitelisted_denoms: Vec<String>,
-    pub astroport_router: String,
+    pub skip_entry_point: String,
 }
 
 #[cw_ownable_execute]
@@ -28,7 +28,7 @@ pub enum VaultExecuteMsg {
     },
     UpdatePrices {
         prices: Vec<PriceInfo>,
-        swap_operations: Option<Vec<SwapOperations>>,
+        swap_routes: Option<Vec<SwapRoute>>,
     },
 }
 
@@ -116,7 +116,7 @@ pub enum DepositState {
 pub struct Payload {
     pub timestamp: Timestamp,
     pub prices: Vec<PriceInfo>,
-    pub swap_operations: Option<Vec<SwapOperations>>,
+    pub swap_routes: Option<Vec<SwapRoute>>,
 }
 
 impl Payload {

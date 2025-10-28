@@ -9,6 +9,7 @@ use crate::{msg::PriceInfo, DepositRequest, Payload};
 pub struct TradeInfo {
     pub in_coin: Coin,
     pub out_denom: String,
+    pub timeout_timestamp: u64,
 }
 
 // Vault
@@ -21,7 +22,7 @@ pub const PENDING_ASSETS: Map<String, Uint256> = Map::new("pending_assets");
 pub const DEPOSIT_ID_COUNTER: Item<u64> = Item::new("deposit_id_counter");
 pub const USER_SHARES: Map<String, Uint256> = Map::new("user_shares");
 pub const PRICES: Map<String, Decimal256> = Map::new("prices"); // denom -> price_usd
-pub const ASTROPORT_ROUTER: Item<Addr> = Item::new("astroport_router");
+pub const SKIP_ENTRY_POINT: Item<Addr> = Item::new("skip_entry_point");
 pub const TRADE_TRACKER: Deque<TradeInfo> = Deque::new("trade_tracker");
 
 // WAVS

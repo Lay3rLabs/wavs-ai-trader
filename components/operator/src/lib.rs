@@ -1,6 +1,7 @@
 #[allow(warnings)]
 #[rustfmt::skip]
 mod bindings;
+mod coingecko;
 mod core;
 mod skip;
 
@@ -37,7 +38,7 @@ impl Guest for Component {
                 let payload = block_on(async move {
                     let query_client = QueryClient::new(
                         ChainConfig {
-                            chain_id: ChainId::new(chain_config.chain_id),
+                            chain_id: ChainId::new(chain_config.chain_id.clone()),
                             rpc_endpoint: chain_config.rpc_endpoint,
                             grpc_endpoint: chain_config.grpc_endpoint,
                             grpc_web_endpoint: chain_config.grpc_web_endpoint,
@@ -64,6 +65,7 @@ impl Guest for Component {
                         Address::Cosmos(address),
                         trade_strategy,
                         trigger_time.nanos,
+                        chain_config.chain_id,
                     )
                     .await
                     .map_err(|e| e.to_string())

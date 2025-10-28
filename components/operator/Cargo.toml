@@ -26,4 +26,3 @@ thiserror = { workspace = true }
 cosmwasm-std = { workspace = true }
 wavs-types = { workspace = true }
 vault = { workspace = true }
-rust_decimal = { workspace = true }

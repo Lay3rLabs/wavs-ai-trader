@@ -4,17 +4,18 @@ use cw_ownable::Ownership;
 use std::str::FromStr;
 
 use crate::{
-    astroport::SwapOperations,
     execute, instantiate,
     msg::{ExecuteMsg, InstantiateMsg, PriceInfo, QueryMsg, VaultExecuteMsg, VaultQueryMsg},
-    query, DepositRequest, DepositState,
+    query,
+    skip_entry::SwapRoute,
+    DepositRequest, DepositState,
 };
 
 const DENOM_ATOM: &str = "uatom";
 const DENOM_OSMO: &str = "uosmo";
 const DENOM_UNLISTED: &str = "utoken";
 const SERVICE_MANAGER: &str = "service-manager";
-const ASTROPORT_ROUTER_ADDR: &str = "astroport-router";
+const SKIP_ENTRY_POINT_ADDR: &str = "skip-entry-point";
 
 #[derive(Clone)]
 struct TestAddrs {
@@ -22,7 +23,7 @@ struct TestAddrs {
     user1: Addr,
     user2: Addr,
     service_manager: Addr,
-    astroport_router: Addr,
+    skip_entry_point: Addr,
 }
 
 fn mock_app_with_addrs() -> (App, TestAddrs) {
@@ -30,20 +31,20 @@ fn mock_app_with_addrs() -> (App, TestAddrs) {
     let mut user1_addr: Option<Addr> = None;
     let mut user2_addr: Option<Addr> = None;
     let mut service_manager_addr: Option<Addr> = None;
-    let mut astroport_router_addr: Option<Addr> = None;
+    let mut skip_entry_point_addr: Option<Addr> = None;
 
     let app = AppBuilder::new().build(|router, api, storage| {
         let owner = api.addr_make(OWNER);
         let user1 = api.addr_make(USER1);
         let user2 = api.addr_make(USER2);
         let service_manager = api.addr_make(SERVICE_MANAGER);
-        let astroport_router = api.addr_make(ASTROPORT_ROUTER_ADDR);
+        let skip_entry_point = api.addr_make(SKIP_ENTRY_POINT_ADDR);
 
         owner_addr = Some(owner.clone());
         user1_addr = Some(user1.clone());
         user2_addr = Some(user2.clone());
         service_manager_addr = Some(service_manager.clone());
-        astroport_router_addr = Some(astroport_router.clone());
+        skip_entry_point_addr = Some(skip_entry_point.clone());
 
         router
             .bank
@@ -88,7 +89,7 @@ fn mock_app_with_addrs() -> (App, TestAddrs) {
         user1: user1_addr.expect("user1 address initialized"),
         user2: user2_addr.expect("user2 address initialized"),
         service_manager: service_manager_addr.expect("service manager address initialized"),
-        astroport_router: astroport_router_addr.expect("astroport router address initialized"),
+        skip_entry_point: skip_entry_point_addr.expect("skip entry point address initialized"),
     };
 
     (app, addrs)
@@ -141,14 +142,14 @@ fn execute_update_prices(
     app: &mut App,
     vault_addr: &Addr,
     prices: Vec<PriceInfo>,
-    swap_operations: Option<Vec<SwapOperations>>,
+    swap_routes: Option<Vec<SwapRoute>>,
 ) -> AppResponse {
     app.execute_contract(
         vault_addr.clone(),
         vault_addr.clone(),
         &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
             prices,
-            swap_operations,
+            swap_routes,
         }),
         &[],
     )
@@ -171,7 +172,7 @@ fn proper_instantiate() -> (App, Addr, TestAddrs) {
     let msg = InstantiateMsg {
         service_manager: addrs.service_manager.to_string(),
         initial_whitelisted_denoms: vec![DENOM_ATOM.to_string(), DENOM_OSMO.to_string()],
-        astroport_router: addrs.astroport_router.to_string(),
+        skip_entry_point: addrs.skip_entry_point.to_string(),
     };
 
     let vault_addr = app
@@ -189,7 +190,7 @@ fn test_instantiate() {
     let msg = InstantiateMsg {
         service_manager: addrs.service_manager.to_string(),
         initial_whitelisted_denoms: vec![DENOM_ATOM.to_string(), DENOM_OSMO.to_string()],
-        astroport_router: addrs.astroport_router.to_string(),
+        skip_entry_point: addrs.skip_entry_point.to_string(),
     };
 
     let vault_addr = app
@@ -758,7 +759,7 @@ fn test_update_prices_rejects_zero_price() {
                     denom: DENOM_ATOM.to_string(),
                     price_usd: Decimal256::zero(),
                 }],
-                swap_operations: None,
+                swap_routes: None,
             }),
             &[],
         )

@@ -46,4 +46,10 @@ pub enum ContractError {
 
     #[error("No funds provided")]
     NoFunds {},
+
+    #[error("Swap route has already expired")]
+    SwapRouteExpired {},
+
+    #[error("Swap route amount is zero for denom: {denom}")]
+    SwapRouteZeroAmount { denom: String },
 }
