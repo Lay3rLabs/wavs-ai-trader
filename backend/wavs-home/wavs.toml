@@ -1,0 +1,60 @@
+[default]
+log_level = ["debug"]
+
+# Those configs are global and shared between wavs and aggregator
+jaeger = "http://localhost:4317"
+prometheus = "http://localhost:9090"
+
+
+# ----------------------------
+# Chain configurations
+# ----------------------------
+
+# This must match the starship config in `backend/starship/chains.yml`
+[default.chains.cosmos.neutron-1]
+bech32_prefix = "neutron"
+rpc_endpoint = "http://localhost:27657"
+grpc_endpoint = "http://localhost:9090"
+gas_price = 0.025
+gas_denom = "untrn"
+
+[default.chains.dev.docker-neutron-1]
+type = "cosmos"
+chain_id = "neutron-1"
+bech32_prefix = "neutron"
+rpc_endpoint = "http://host.docker.internal:27657"
+grpc_endpoint = "http://host.docker.internal:9090"
+gas_price = 0.025
+gas_denom = "untrn"
+
+# ----------------------------
+# WAVS specific settings
+# ----------------------------
+[wavs]
+cors_allowed_origins = [
+    "https://lay3rlabs.github.io/*",
+    "http://localhost:*",
+    "http://127.0.0.1:*",
+]
+
+
+# ----------------------------
+# CLI specific settings
+# ----------------------------
+[cli]
+# The directory to store the data.
+data = "~/wavs/cli"
+
+
+# ----------------------------
+# Aggregator specific settings
+# ----------------------------
+[aggregator]
+# The directory to store the data.
+data = "~/wavs/aggregator"
+
+cors_allowed_origins = [
+    "https://lay3rlabs.github.io/*",
+    "http://localhost:*",
+    "http://127.0.0.1:*",
+]

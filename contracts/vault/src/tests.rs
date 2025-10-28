@@ -4,18 +4,18 @@ use cw_ownable::Ownership;
 use std::str::FromStr;
 
 use crate::{
-    astroport::SwapOperations,
     execute, instantiate,
-    msg::{ExecuteMsg, InstantiateMsg, PriceUpdate, QueryMsg, VaultExecuteMsg, VaultQueryMsg},
+    msg::{ExecuteMsg, InstantiateMsg, PriceInfo, QueryMsg, VaultExecuteMsg, VaultQueryMsg},
     query,
-    state::DepositState,
+    skip_entry::SwapRoute,
+    DepositRequest, DepositState,
 };
 
 const DENOM_ATOM: &str = "uatom";
 const DENOM_OSMO: &str = "uosmo";
 const DENOM_UNLISTED: &str = "utoken";
 const SERVICE_MANAGER: &str = "service-manager";
-const ASTROPORT_ROUTER_ADDR: &str = "astroport-router";
+const SKIP_ENTRY_POINT_ADDR: &str = "skip-entry-point";
 
 #[derive(Clone)]
 struct TestAddrs {
@@ -23,7 +23,7 @@ struct TestAddrs {
     user1: Addr,
     user2: Addr,
     service_manager: Addr,
-    astroport_router: Addr,
+    skip_entry_point: Addr,
 }
 
 fn mock_app_with_addrs() -> (App, TestAddrs) {
@@ -31,20 +31,20 @@ fn mock_app_with_addrs() -> (App, TestAddrs) {
     let mut user1_addr: Option<Addr> = None;
     let mut user2_addr: Option<Addr> = None;
     let mut service_manager_addr: Option<Addr> = None;
-    let mut astroport_router_addr: Option<Addr> = None;
+    let mut skip_entry_point_addr: Option<Addr> = None;
 
     let app = AppBuilder::new().build(|router, api, storage| {
         let owner = api.addr_make(OWNER);
         let user1 = api.addr_make(USER1);
         let user2 = api.addr_make(USER2);
         let service_manager = api.addr_make(SERVICE_MANAGER);
-        let astroport_router = api.addr_make(ASTROPORT_ROUTER_ADDR);
+        let skip_entry_point = api.addr_make(SKIP_ENTRY_POINT_ADDR);
 
         owner_addr = Some(owner.clone());
         user1_addr = Some(user1.clone());
         user2_addr = Some(user2.clone());
         service_manager_addr = Some(service_manager.clone());
-        astroport_router_addr = Some(astroport_router.clone());
+        skip_entry_point_addr = Some(skip_entry_point.clone());
 
         router
             .bank
@@ -89,7 +89,7 @@ fn mock_app_with_addrs() -> (App, TestAddrs) {
         user1: user1_addr.expect("user1 address initialized"),
         user2: user2_addr.expect("user2 address initialized"),
         service_manager: service_manager_addr.expect("service manager address initialized"),
-        astroport_router: astroport_router_addr.expect("astroport router address initialized"),
+        skip_entry_point: skip_entry_point_addr.expect("skip entry point address initialized"),
     };
 
     (app, addrs)
@@ -141,15 +141,15 @@ fn decimal(value: u128) -> Decimal256 {
 fn execute_update_prices(
     app: &mut App,
     vault_addr: &Addr,
-    prices: Vec<PriceUpdate>,
-    swap_operations: Option<Vec<SwapOperations>>,
+    prices: Vec<PriceInfo>,
+    swap_routes: Option<Vec<SwapRoute>>,
 ) -> AppResponse {
     app.execute_contract(
         vault_addr.clone(),
         vault_addr.clone(),
         &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
             prices,
-            swap_operations,
+            swap_routes,
         }),
         &[],
     )
@@ -172,7 +172,7 @@ fn proper_instantiate() -> (App, Addr, TestAddrs) {
     let msg = InstantiateMsg {
         service_manager: addrs.service_manager.to_string(),
         initial_whitelisted_denoms: vec![DENOM_ATOM.to_string(), DENOM_OSMO.to_string()],
-        astroport_router: addrs.astroport_router.to_string(),
+        skip_entry_point: addrs.skip_entry_point.to_string(),
     };
 
     let vault_addr = app
@@ -190,7 +190,7 @@ fn test_instantiate() {
     let msg = InstantiateMsg {
         service_manager: addrs.service_manager.to_string(),
         initial_whitelisted_denoms: vec![DENOM_ATOM.to_string(), DENOM_OSMO.to_string()],
-        astroport_router: addrs.astroport_router.to_string(),
+        skip_entry_point: addrs.skip_entry_point.to_string(),
     };
 
     let vault_addr = app
@@ -266,7 +266,7 @@ fn test_deposit_success() {
     // Check deposit request was created
     let deposit_request = app
         .wrap()
-        .query_wasm_smart::<crate::state::DepositRequest>(
+        .query_wasm_smart::<DepositRequest>(
             &vault_addr,
             &QueryMsg::Vault(VaultQueryMsg::GetDepositRequest { deposit_id: 1 }),
         )
@@ -349,7 +349,7 @@ fn test_multi_denom_deposit_success() {
     // Check that single deposit request was created with both coins
     let deposit_request = app
         .wrap()
-        .query_wasm_smart::<crate::state::DepositRequest>(
+        .query_wasm_smart::<DepositRequest>(
             &vault_addr,
             &QueryMsg::Vault(VaultQueryMsg::GetDepositRequest { deposit_id: 1 }),
         )
@@ -414,7 +414,7 @@ fn test_multi_denom_deposit_zero_amount_mixed() {
     // Check that single deposit request was created with only non-zero coins
     let deposit_request = app
         .wrap()
-        .query_wasm_smart::<crate::state::DepositRequest>(
+        .query_wasm_smart::<DepositRequest>(
             &vault_addr,
             &QueryMsg::Vault(VaultQueryMsg::GetDepositRequest { deposit_id: 1 }),
         )
@@ -478,11 +478,11 @@ fn test_multi_denom_deposit_price_processing() {
         &mut app,
         &vault_addr,
         vec![
-            PriceUpdate {
+            PriceInfo {
                 denom: DENOM_ATOM.to_string(),
                 price_usd: decimal(10),
             },
-            PriceUpdate {
+            PriceInfo {
                 denom: DENOM_OSMO.to_string(),
                 price_usd: decimal(5),
             },
@@ -526,13 +526,13 @@ fn test_multi_denom_deposit_price_processing() {
     // Check that the deposit was completed with the correct total value
     let deposit_request = app
         .wrap()
-        .query_wasm_smart::<crate::state::DepositRequest>(
+        .query_wasm_smart::<DepositRequest>(
             &vault_addr,
             &QueryMsg::Vault(VaultQueryMsg::GetDepositRequest { deposit_id: 1 }),
         )
         .unwrap();
     match deposit_request.state {
-        crate::state::DepositState::Completed { value_usd } => {
+        DepositState::Completed { value_usd } => {
             assert_eq!(value_usd, decimal(2000));
         }
         _ => panic!("Deposit should be completed"),
@@ -557,7 +557,7 @@ fn test_update_prices_and_process_deposits() {
     let res = execute_update_prices(
         &mut app,
         &vault_addr,
-        vec![PriceUpdate {
+        vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
@@ -587,7 +587,7 @@ fn test_update_prices_and_process_deposits() {
     // Check that deposit was processed
     let deposit_request = app
         .wrap()
-        .query_wasm_smart::<crate::state::DepositRequest>(
+        .query_wasm_smart::<DepositRequest>(
             &vault_addr,
             &QueryMsg::Vault(VaultQueryMsg::GetDepositRequest { deposit_id: 1 }),
         )
@@ -636,7 +636,7 @@ fn test_share_issuance_precision() {
     let first_res = execute_update_prices(
         &mut app,
         &vault_addr,
-        vec![PriceUpdate {
+        vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
@@ -679,7 +679,7 @@ fn test_share_issuance_precision() {
     let second_res = execute_update_prices(
         &mut app,
         &vault_addr,
-        vec![PriceUpdate {
+        vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
@@ -722,7 +722,7 @@ fn test_share_issuance_precision() {
     );
 
     for deposit_id in 1..=2 {
-        let deposit: crate::state::DepositRequest = app
+        let deposit: DepositRequest = app
             .wrap()
             .query_wasm_smart(
                 &vault_addr,
@@ -755,11 +755,11 @@ fn test_update_prices_rejects_zero_price() {
             vault_addr.clone(),
             vault_addr.clone(),
             &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
-                prices: vec![PriceUpdate {
+                prices: vec![PriceInfo {
                     denom: DENOM_ATOM.to_string(),
                     price_usd: Decimal256::zero(),
                 }],
-                swap_operations: None,
+                swap_routes: None,
             }),
             &[],
         )
@@ -772,7 +772,7 @@ fn test_update_prices_rejects_zero_price() {
     // Ensure deposit stayed pending
     let deposit_request = app
         .wrap()
-        .query_wasm_smart::<crate::state::DepositRequest>(
+        .query_wasm_smart::<DepositRequest>(
             &vault_addr,
             &QueryMsg::Vault(VaultQueryMsg::GetDepositRequest { deposit_id: 1 }),
         )
@@ -806,7 +806,7 @@ fn test_multi_denom_price_updates_with_pending_handling() {
     let first_res = execute_update_prices(
         &mut app,
         &vault_addr,
-        vec![PriceUpdate {
+        vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
@@ -824,7 +824,7 @@ fn test_multi_denom_price_updates_with_pending_handling() {
         "deposit 2 should remain pending without a price"
     );
 
-    let deposit_two_pending: crate::state::DepositRequest = app
+    let deposit_two_pending: DepositRequest = app
         .wrap()
         .query_wasm_smart(
             &vault_addr,
@@ -857,11 +857,11 @@ fn test_multi_denom_price_updates_with_pending_handling() {
         &mut app,
         &vault_addr,
         vec![
-            PriceUpdate {
+            PriceInfo {
                 denom: DENOM_ATOM.to_string(),
                 price_usd: decimal(10),
             },
-            PriceUpdate {
+            PriceInfo {
                 denom: DENOM_OSMO.to_string(),
                 price_usd: decimal(5),
             },
@@ -913,7 +913,7 @@ fn test_multi_denom_price_updates_with_pending_handling() {
             .expect("add shares"),
     );
 
-    let deposit_two_completed: crate::state::DepositRequest = app
+    let deposit_two_completed: DepositRequest = app
         .wrap()
         .query_wasm_smart(
             &vault_addr,
@@ -952,7 +952,7 @@ fn test_price_volatility_updates() {
     let initial_res = execute_update_prices(
         &mut app,
         &vault_addr,
-        vec![PriceUpdate {
+        vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
@@ -993,7 +993,7 @@ fn test_price_volatility_updates() {
     let volatility_res = execute_update_prices(
         &mut app,
         &vault_addr,
-        vec![PriceUpdate {
+        vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(5),
         }],
@@ -1102,7 +1102,7 @@ fn test_withdraw_success() {
     execute_update_prices(
         &mut app,
         &vault_addr,
-        vec![PriceUpdate {
+        vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
@@ -1304,7 +1304,7 @@ fn test_multiple_deposits_and_withdrawals() {
     execute_update_prices(
         &mut app,
         &vault_addr,
-        vec![PriceUpdate {
+        vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
@@ -1322,7 +1322,7 @@ fn test_multiple_deposits_and_withdrawals() {
     assert_eq!(vault_value, decimal(3000));
 
     for deposit_id in 1..=2 {
-        let deposit_request: crate::state::DepositRequest = app
+        let deposit_request: DepositRequest = app
             .wrap()
             .query_wasm_smart(
                 &vault_addr,
@@ -1386,7 +1386,7 @@ fn test_vault_assets_query() {
     execute_update_prices(
         &mut app,
         &vault_addr,
-        vec![PriceUpdate {
+        vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
@@ -1425,7 +1425,7 @@ fn test_price_query() {
     execute_update_prices(
         &mut app,
         &vault_addr,
-        vec![PriceUpdate {
+        vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
         }],
@@ -1468,7 +1468,7 @@ fn test_list_deposit_requests() {
     .unwrap();
 
     // List all deposit requests
-    let deposits: Vec<crate::state::DepositRequest> = app
+    let deposits: Vec<DepositRequest> = app
         .wrap()
         .query_wasm_smart(
             &vault_addr,
@@ -1485,7 +1485,7 @@ fn test_list_deposit_requests() {
     assert!(matches!(deposits[1].state, DepositState::Pending));
 
     // List with pagination
-    let deposits: Vec<crate::state::DepositRequest> = app
+    let deposits: Vec<DepositRequest> = app
         .wrap()
         .query_wasm_smart(
             &vault_addr,

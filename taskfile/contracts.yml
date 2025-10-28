@@ -1,0 +1,60 @@
+version: "3"
+
+includes:
+  config:
+    taskfile: ./config.yml
+    flatten: true
+
+tasks:
+  clean-all:
+    cmds:
+      - for: { var: ALL_CONTRACTS }
+        cmd: task contracts:clean CONTRACT={{.ITEM}}
+      - echo "Cleaning artifacts directory"
+      - |
+        {{.DOCKER_SUDO}} rm -rf "./artifacts" || true
+  clean:
+    requires:
+      vars: [CONTRACT]
+    vars:
+      CONTRACT_SRC_NAME:
+        sh: task contracts:src-name CONTRACT_KIND={{.CONTRACT}}
+    cmds:
+      - echo "Cleaning {{.CONTRACT}} contracts"
+      - rm -rf "{{.CONTRACTS_ARTIFACTS_PATH}}/{{.CONTRACT}}_*"
+
+  build-all:
+    cmds:
+      - for: { var: ALL_CONTRACTS }
+        cmd: task contracts:build CONTRACT={{.ITEM}}
+
+  build:
+    requires:
+      vars: [CONTRACT]
+    vars:
+      CONTRACT_SRC_NAME:
+        sh: task contracts:src-name CONTRACT_KIND={{.CONTRACT}}
+      CONTRACT_PATH: "contracts/{{.CONTRACT}}"
+      CONTRACT_FILE: "{{.CONTRACT_SRC_NAME}}.wasm"
+    cmds:
+      - echo "Building contract {{.CONTRACT}} at {{.CONTRACT_PATH}}"
+      - |
+        {{.DOCKER_SUDO}} rm -rf "./artifacts/{{.CONTRACT_FILE}}" || true
+      - mkdir -p "./artifacts"
+      - >
+        {{.DOCKER_SUDO}} docker run --rm
+        -v "{{.REPO_ROOT}}:/code"
+        --mount type=volume,source="{{.CW_OPTIMIZER_CACHE}}_cache",target=/target
+        --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry
+        {{.COSMWASM_OPTIMIZER_IMAGE}} "{{.CONTRACT_PATH}}"
+      - mkdir -p "{{.CONTRACTS_ARTIFACTS_PATH}}"
+      - cp -r "./artifacts/{{.CONTRACT_FILE}}" "{{.CONTRACTS_ARTIFACTS_PATH}}/"
+      - |
+        {{.DOCKER_SUDO}} rm -rf "./artifacts/{{.CONTRACT_FILE}}" || true
+      - echo "Built contract at {{.CONTRACTS_ARTIFACTS_PATH}}/{{.CONTRACT_FILE}}"
+
+  src-name:
+    requires:
+      vars: [CONTRACT]
+    cmds:
+      - echo "{{ replace "-" "_" .CONTRACT }}"

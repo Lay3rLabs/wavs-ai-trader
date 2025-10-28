@@ -2,21 +2,22 @@ use cosmwasm_std::{
     ensure_eq, to_json_binary, BankMsg, Coin, CosmosMsg, Decimal256, DepsMut, Env, MessageInfo,
     Response, SubMsg, Uint256, WasmMsg,
 };
-use serde_json::json;
 use wavs_types::contracts::cosmwasm::service_handler::{WavsEnvelope, WavsSignatureData};
 use wavs_types::contracts::cosmwasm::service_manager::{
     ServiceManagerQueryMessages, WavsValidateResult,
 };
 
-use crate::astroport::{SwapOperation, SwapOperations};
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, PriceUpdate, VaultExecuteMsg};
-use crate::state::{
-    self, DepositRequest, DepositState, MessageWithId, TradeInfo, ASTROPORT_ROUTER,
-    DEPOSIT_ID_COUNTER, DEPOSIT_REQUESTS, PRICES, TOTAL_SHARES, TRADE_TRACKER, USER_SHARES,
-    VAULT_ASSETS, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
+use crate::msg::{ExecuteMsg, PriceInfo, VaultExecuteMsg};
+use crate::skip_entry::{
+    Action as SkipAction, Asset as SkipAsset, ExecuteMsg as SkipExecuteMsg, Swap as SkipSwap,
+    SwapExactAssetIn, SwapRoute,
 };
-use crate::REPLY_TRACKER_ID;
+use crate::state::{
+    self, TradeInfo, DEPOSIT_ID_COUNTER, DEPOSIT_REQUESTS, PRICES, SKIP_ENTRY_POINT, TOTAL_SHARES,
+    TRADE_TRACKER, USER_SHARES, VAULT_ASSETS, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
+};
+use crate::{DepositRequest, DepositState, Payload, REPLY_TRACKER_ID};
 
 pub fn deposit(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
     // Validate that funds are provided
@@ -221,8 +222,8 @@ pub fn update_prices(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    prices: Vec<PriceUpdate>,
-    swap_operations: Option<Vec<SwapOperations>>,
+    prices: Vec<PriceInfo>,
+    swap_routes: Option<Vec<SwapRoute>>,
 ) -> Result<Response, ContractError> {
     ensure_eq!(
         info.sender,
@@ -285,44 +286,77 @@ pub fn update_prices(
     }
 
     // Execute rebalancing at the end
-    if let Some(swap_operations) = swap_operations {
-        if !swap_operations.is_empty() {
-            let router = ASTROPORT_ROUTER.load(deps.storage)?;
+    if let Some(swap_routes) = swap_routes {
+        if !swap_routes.is_empty() {
+            let entry_point = SKIP_ENTRY_POINT.load(deps.storage)?;
 
             events.push(
                 cosmwasm_std::Event::new("rebalancing_started")
-                    .add_attribute("swap_count", swap_operations.len().to_string()),
+                    .add_attribute("swap_count", swap_routes.len().to_string()),
             );
-            for swap_operations in swap_operations {
-                let target_denom = match swap_operations.operations.last().unwrap() {
-                    SwapOperation::NativeSwap { .. } => unimplemented!(), // Not handled in router either
-                    SwapOperation::AstroSwap {
-                        offer_asset_info: _,
-                        ask_asset_info,
-                    } => match ask_asset_info {
-                        crate::astroport::AssetInfo::Token { contract_addr: _ } => unimplemented!(), // Restricting to native tokens only
-                        crate::astroport::AssetInfo::NativeToken { denom } => denom,
-                    },
+            for route in swap_routes {
+                if env.block.time >= route.timeout {
+                    return Err(ContractError::SwapRouteExpired {});
+                }
+
+                if route.amount_in.is_zero() {
+                    return Err(ContractError::SwapRouteZeroAmount {
+                        denom: route.offer_denom,
+                    });
+                }
+
+                WHITELISTED_DENOMS
+                    .load(deps.storage, route.offer_denom.clone())
+                    .map_err(|_| ContractError::TokenNotWhitelisted {
+                        token: route.offer_denom.clone(),
+                    })?;
+                WHITELISTED_DENOMS
+                    .load(deps.storage, route.ask_denom.clone())
+                    .map_err(|_| ContractError::TokenNotWhitelisted {
+                        token: route.ask_denom.clone(),
+                    })?;
+
+                let swap_coin = Coin {
+                    denom: route.offer_denom.clone(),
+                    amount: route.amount_in.into(),
                 };
+
+                let target_denom = route.ask_denom.clone();
+
                 TRADE_TRACKER.push_back(
                     deps.storage,
                     &TradeInfo {
-                        in_coin: swap_operations.coin.clone(),
-                        out_denom: target_denom.to_owned(),
+                        in_coin: swap_coin.clone(),
+                        out_denom: target_denom.clone(),
+                        timeout_timestamp: route.timeout.nanos(),
                     },
                 )?;
 
+                let swap_msg = SkipExecuteMsg::SwapAndAction {
+                    sent_asset: None,
+                    user_swap: SkipSwap::SwapExactAssetIn(SwapExactAssetIn {
+                        swap_venue_name: route.swap_venue_name.clone(),
+                        operations: route.operations.clone(),
+                    }),
+                    min_asset: SkipAsset::Native(Coin {
+                        denom: target_denom.clone(),
+                        amount: route
+                            .minimum_amount_out
+                            .unwrap_or(route.estimated_amount_out)
+                            .into(),
+                    }),
+                    timeout_timestamp: route.timeout.nanos(),
+                    post_swap_action: SkipAction::Transfer {
+                        to_address: env.contract.address.to_string(),
+                    },
+                    affiliates: vec![],
+                };
+
                 msgs.push(SubMsg::reply_always(
                     WasmMsg::Execute {
-                        contract_addr: router.to_string(),
-                        msg: to_json_binary(&json!({
-                            "execute_swap_operations": {
-                                "operations": swap_operations.operations,
-                                "minimum_receive": swap_operations.minimum_receive,
-                                "max_spread": swap_operations.max_spread
-                            }
-                        }))?,
-                        funds: vec![swap_operations.coin],
+                        contract_addr: entry_point.to_string(),
+                        msg: to_json_binary(&swap_msg)?,
+                        funds: vec![swap_coin],
                     },
                     REPLY_TRACKER_ID,
                 ))
@@ -512,9 +546,9 @@ pub fn handle_signed_envelope(
         )?
         .into_std()?;
 
-    let MessageWithId {
+    let Payload {
         prices,
-        swap_operations,
+        swap_routes,
         ..
     } = state::save_envelope(deps.storage, envelope, signature_data)?;
 
@@ -522,7 +556,7 @@ pub fn handle_signed_envelope(
         contract_addr: env.contract.address.to_string(),
         msg: to_json_binary(&ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
             prices,
-            swap_operations,
+            swap_routes,
         }))?,
         funds: vec![],
     });

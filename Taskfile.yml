@@ -1,8 +1,20 @@
 version: "3"
 
+dotenv: [".env"]
+
+includes:
+  contracts: ./taskfile/contracts.yml
+  components: ./taskfile/components.yml
+  backend: ./taskfile/backend.yml
+  cli: ./taskfile/cli.yml
+  test: ./taskfile/test.yml
+
 tasks:
+  default:
+    cmds:
+      - task --list-all
+
   lint:
-    dir: "contracts"
     desc: "Run code formatting and linting checks"
     cmds:
       - cargo fmt --all -- --check
