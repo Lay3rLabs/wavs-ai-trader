@@ -35,7 +35,7 @@ tasks:
     vars:
       COMPONENT_SRC_NAME:
         sh: task components:src-name COMPONENT={{.COMPONENT}}
-      COMPONENT_PATH: "packages/components/{{.COMPONENT}}"
+      COMPONENT_PATH: "components/{{.COMPONENT}}"
       COMPONENT_FILE: "{{.COMPONENT_SRC_NAME}}.wasm"
       COMPONENT_PACKAGE: "{{.COMPONENT}}"
     cmds:
@@ -64,7 +64,7 @@ tasks:
       vars: [COMPONENT]
     cmds:
       - echo "Cleaning WIT for component {{.COMPONENT}}"
-      - rm -rf "./packages/components/{{.COMPONENT}}/wit"
+      - rm -rf "./components/{{.COMPONENT}}/wit"
 
   fetch-wit-all:
     cmds:
@@ -105,7 +105,7 @@ tasks:
           COMPONENT: "{{.COMPONENT}}"
     cmds:
       - echo "Fetching WIT for component {{.COMPONENT}} - {{.WIT_ITEM}}"
-      - mkdir -p "./packages/components/{{.COMPONENT}}/wit"
-      - wkg get "{{.WIT_ITEM}}" --output "./packages/components/{{.COMPONENT}}/wit/"
-      - wkg wit fetch -d "./packages/components/{{.COMPONENT}}/wit"
+      - mkdir -p "./components/{{.COMPONENT}}/wit"
+      - wkg get "{{.WIT_ITEM}}" --output "./components/{{.COMPONENT}}/wit/"
+      - wkg wit fetch -d "./components/{{.COMPONENT}}/wit"
       - echo "Completed fetch for {{.WIT_ITEM}}"
