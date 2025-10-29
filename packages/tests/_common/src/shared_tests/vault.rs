@@ -14,10 +14,7 @@ pub struct VaultInstantiationProps {
     pub skip_entry_point: String,
 }
 
-pub async fn test_vault_instantiation(
-    querier: &VaultQuerier,
-    props: VaultInstantiationProps,
-) {
+pub async fn test_vault_instantiation(querier: &VaultQuerier, props: VaultInstantiationProps) {
     let VaultInstantiationProps {
         service_manager: _,
         initial_whitelisted_denoms,
@@ -64,17 +61,17 @@ pub async fn test_vault_deposit(
     } = props;
 
     // Execute deposit
-    executor
-        .deposit(&user_addr, &deposit_amount)
-        .await
-        .unwrap();
+    executor.deposit(&user_addr, &deposit_amount).await.unwrap();
 
     // Check deposit request was created
     let deposit_request = querier.deposit_request(1).await.unwrap();
     assert_eq!(deposit_request.id, 1);
     assert_eq!(deposit_request.user.to_string(), user_addr.to_string());
     assert_eq!(deposit_request.coins, deposit_amount);
-    assert!(matches!(deposit_request.state, vault::msg::DepositState::Pending));
+    assert!(matches!(
+        deposit_request.state,
+        vault::msg::DepositState::Pending
+    ));
 }
 
 pub struct VaultWhitelistProps {
@@ -121,10 +118,7 @@ pub async fn test_vault_price_updates(
     let VaultPriceUpdateProps { prices } = props;
 
     // Update prices
-    executor
-        .update_prices(prices.clone(), None)
-        .await
-        .unwrap();
+    executor.update_prices(prices.clone(), None).await.unwrap();
 
     // Verify prices were updated
     let vault_state = querier.vault_state().await.unwrap();
@@ -154,17 +148,14 @@ pub async fn test_vault_withdrawal(
     let VaultWithdrawalProps {
         user_addr,
         shares,
-        expected_minimum_withdrawal,
+        expected_minimum_withdrawal: _,
     } = props;
 
     // Get state before withdrawal
     let total_shares_before = querier.total_shares().await.unwrap();
 
     // Execute withdrawal
-    executor
-        .withdraw(&user_addr, shares)
-        .await
-        .unwrap();
+    executor.withdraw(&user_addr, shares).await.unwrap();
 
     // Verify shares were burned
     let total_shares_after = querier.total_shares().await.unwrap();
@@ -177,10 +168,7 @@ pub struct VaultErrorHandlingProps {
     pub invalid_amount: cosmwasm_std::Uint256,
 }
 
-pub async fn test_vault_error_handling(
-    executor: &VaultExecutor,
-    props: VaultErrorHandlingProps,
-) {
+pub async fn test_vault_error_handling(executor: &VaultExecutor, props: VaultErrorHandlingProps) {
     let VaultErrorHandlingProps {
         user_addr,
         invalid_denom,
@@ -196,17 +184,29 @@ pub async fn test_vault_error_handling(
     let result = executor.deposit(&user_addr, &invalid_deposit).await;
     assert!(result.is_err());
     let error_msg = result.unwrap_err().to_string();
-    assert!(error_msg.contains("Cannot Sub") || error_msg.contains("Overflow") || error_msg.contains("Token not whitelisted"));
+    assert!(
+        error_msg.contains("Cannot Sub")
+            || error_msg.contains("Overflow")
+            || error_msg.contains("Token not whitelisted")
+    );
 
     // Test withdraw zero shares
-    let result = executor.withdraw(&user_addr, cosmwasm_std::Uint256::zero()).await;
+    let result = executor
+        .withdraw(&user_addr, cosmwasm_std::Uint256::zero())
+        .await;
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("Cannot withdraw zero shares"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("Cannot withdraw zero shares"));
 
     // Test withdraw insufficient shares
     let result = executor.withdraw(&user_addr, invalid_amount).await;
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("Insufficient shares"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("Insufficient shares"));
 }
 
 pub struct VaultComprehensiveWorkflowProps {
@@ -252,8 +252,14 @@ pub async fn test_vault_comprehensive_workflow(
     // Verify deposits were processed (check for completed state)
     let deposit1_processed = querier.deposit_request(1).await.unwrap();
     let deposit2_processed = querier.deposit_request(2).await.unwrap();
-    assert!(matches!(deposit1_processed.state, vault::msg::DepositState::Completed { .. }));
-    assert!(matches!(deposit2_processed.state, vault::msg::DepositState::Completed { .. }));
+    assert!(matches!(
+        deposit1_processed.state,
+        vault::msg::DepositState::Completed { .. }
+    ));
+    assert!(matches!(
+        deposit2_processed.state,
+        vault::msg::DepositState::Completed { .. }
+    ));
 
     // Verify vault has assets and shares
     let total_shares = querier.total_shares().await.unwrap();
@@ -264,10 +270,7 @@ pub async fn test_vault_comprehensive_workflow(
 
     // Add new token to whitelist
     executor
-        .update_whitelist(
-            Some(vec![new_whitelist_denom.clone()]),
-            None,
-        )
+        .update_whitelist(Some(vec![new_whitelist_denom.clone()]), None)
         .await
         .unwrap();
 
@@ -292,10 +295,7 @@ pub async fn test_vault_multiple_deposits(
 
     for (i, (user_addr, deposit_amount)) in deposits.into_iter().enumerate() {
         // Execute deposit
-        executor
-            .deposit(&user_addr, &deposit_amount)
-            .await
-            .unwrap();
+        executor.deposit(&user_addr, &deposit_amount).await.unwrap();
 
         // Track expected vault assets
         for coin in &deposit_amount {
@@ -309,7 +309,10 @@ pub async fn test_vault_multiple_deposits(
         assert_eq!(deposit_request.id, (i + 1) as u64);
         assert_eq!(deposit_request.user.to_string(), user_addr.to_string());
         assert_eq!(deposit_request.coins, deposit_amount);
-        assert!(matches!(deposit_request.state, vault::msg::DepositState::Pending));
+        assert!(matches!(
+            deposit_request.state,
+            vault::msg::DepositState::Pending
+        ));
     }
 
     // Verify final vault assets

@@ -122,7 +122,7 @@ pub enum CliCommand {
 // common args for several commands
 #[derive(Clone, Debug, Parser)]
 pub struct CliArgs {
-    #[clap(long, default_value = "cosmos:neutron-fork-1")]
+    #[clap(long, default_value = "cosmos:neutron-1")]
     pub chain: ChainKey,
 
     /// Filename for outputting any generated files
