@@ -65,11 +65,26 @@ async fn main() -> anyhow::Result<()> {
         CliCommand::InstantiateVault {
             code_id,
             initial_whitelisted_denoms,
-            service_manager,
             skip_entry_point,
             args,
         } => {
-            let client = ctx.signing_client().await.unwrap();
+            let client = ctx.signing_client().await?;
+
+            // Read middleware instantiation file to get service manager address
+            let middleware_instantiation_file = args.output().directory.join("middleware.json");
+            let middleware_content = tokio::fs::read_to_string(&middleware_instantiation_file)
+                .await
+                .map_err(|e| {
+                    anyhow::anyhow!("Failed to read middleware instantiation file: {}", e)
+                })?;
+
+            let middleware: serde_json::Value = serde_json::from_str(&middleware_content)?;
+            let service_manager = middleware["service_manager_address"]
+                .as_str()
+                .ok_or_else(|| {
+                    anyhow::anyhow!("service_manager_address not found in middleware file")
+                })?
+                .to_string();
 
             // Use provided skip entry point or get default for the chain
             let skip_entry_point = match skip_entry_point {
@@ -99,8 +114,7 @@ async fn main() -> anyhow::Result<()> {
                     vec![],
                     None,
                 )
-                .await
-                .unwrap();
+                .await?;
 
             println!(
                 "Instantiated vault contract at address: {} with tx hash: {}",
@@ -174,63 +188,196 @@ async fn main() -> anyhow::Result<()> {
             Ok(())
         }
         CliCommand::UploadService {
-            contract_payments_instantiation_file,
-            middleware_instantiation_file: _,
+            contract_vault_instantiation_file,
+            middleware_instantiation_file,
             component_operator_cid_file,
             component_aggregator_cid_file,
             cron_schedule,
             aggregator_url,
             ipfs_api_url,
             ipfs_gateway_url,
-            args: _,
+            args,
         } => {
-            println!("Uploading service definition to IPFS...");
+            let output_directory = args.output().directory;
 
-            // Read component CID files
-            let operator_cid = std::fs::read_to_string(&component_operator_cid_file)
-                .map_err(|e| anyhow::anyhow!("Failed to read operator CID file: {}", e))?;
-            let aggregator_cid = std::fs::read_to_string(&component_aggregator_cid_file)
-                .map_err(|e| anyhow::anyhow!("Failed to read aggregator CID file: {}", e))?;
+            let contract_vault_instantiation_file =
+                output_directory.join(contract_vault_instantiation_file);
+            let component_operator_cid_file = output_directory.join(component_operator_cid_file);
+            let component_aggregator_cid_file =
+                output_directory.join(component_aggregator_cid_file);
+            let middleware_instantiation_file =
+                output_directory.join(middleware_instantiation_file);
 
-            // Read contract instantiation files
-            let payments_instantiation: serde_json::Value = serde_json::from_str(
-                &std::fs::read_to_string(&contract_payments_instantiation_file)
-                    .map_err(|e| anyhow::anyhow!("Failed to read payments instantiation file: {}", e))?
-            )?;
+            async fn read_and_decode<T: serde::de::DeserializeOwned>(
+                path: std::path::PathBuf,
+            ) -> anyhow::Result<T> {
+                match tokio::fs::read_to_string(&path).await {
+                    Err(e) => Err(anyhow::anyhow!(
+                        "Failed to read file {}: {}",
+                        path.display(),
+                        e
+                    )),
+                    Ok(content) => match serde_json::from_str(&content) {
+                        Err(e) => Err(anyhow::anyhow!(
+                            "Failed to decode JSON from file {}: {}",
+                            path.display(),
+                            e
+                        )),
+                        Ok(data) => Ok(data),
+                    },
+                }
+            }
 
-            // TODO: Implement middleware instantiation file reading
-            // let middleware_instantiation: serde_json::Value = serde_json::from_str(
-            //     &std::fs::read_to_string(&middleware_instantiation_file)?
-            // )?;
+            let contract_vault: OutputData =
+                read_and_decode(contract_vault_instantiation_file).await?;
 
-            // Create service definition
-            let service_definition = serde_json::json!({
-                "contract_payments": payments_instantiation,
-                // "middleware": middleware_instantiation, // TODO: Add when middleware structure is known
-                "component_operator_cid": operator_cid.trim(),
-                "component_aggregator_cid": aggregator_cid.trim(),
-                "cron_schedule": cron_schedule,
-                "aggregator_url": aggregator_url.to_string(),
-                "created_at": chrono::Utc::now().to_rfc3339()
-            });
+            let component_operator: OutputData =
+                read_and_decode(component_operator_cid_file).await?;
 
-            // Upload service definition to IPFS
-            let service_json = serde_json::to_string_pretty(&service_definition)?;
-            let ipfs_file = IpfsFile::upload(
-                service_json.as_bytes().to_vec(),
-                "service_definition.json",
+            let component_aggregator: OutputData =
+                read_and_decode(component_aggregator_cid_file).await?;
+
+            #[derive(Debug, serde::Deserialize)]
+            struct MiddlewareInstantiation {
+                #[serde(rename = "registry_address")]
+                pub _registry_address: String,
+                pub service_manager_address: String,
+            }
+
+            let middleware_instantiation: MiddlewareInstantiation =
+                read_and_decode(middleware_instantiation_file).await?;
+
+            let trigger = wavs_types::Trigger::Cron {
+                schedule: cron_schedule,
+                start_time: None,
+                end_time: None,
+            };
+
+            // Extract data based on variants
+            let (operator_component, aggregator_component, vault_address) =
+                match (&component_operator, &component_aggregator, &contract_vault) {
+                    (
+                        OutputData::ComponentUpload {
+                            kind: _,
+                            digest: operator_digest,
+                            cid: _,
+                            uri: _,
+                            gateway_url: operator_gateway_url,
+                        },
+                        OutputData::ComponentUpload {
+                            kind: _,
+                            digest: aggregator_digest,
+                            cid: _,
+                            uri: _,
+                            gateway_url: aggregator_gateway_url,
+                        },
+                        OutputData::ContractInstantiate {
+                            kind: _,
+                            address,
+                            tx_hash: _,
+                        },
+                    ) => {
+                        let operator_component = wavs_types::Component {
+                            source: wavs_types::ComponentSource::Download {
+                                uri: operator_gateway_url.parse()?,
+                                digest: operator_digest.clone(),
+                            },
+                            permissions: wavs_types::Permissions {
+                                allowed_http_hosts: wavs_types::AllowedHostPermission::All,
+                                file_system: false,
+                            },
+                            fuel_limit: None,
+                            time_limit_seconds: None,
+                            config: Default::default(),
+                            env_keys: [
+                                "WAVS_ENV_COINGECKO_API_KEY".to_string(),
+                                "WAVS_ENV_SKIP_API_KEY".to_string(),
+                            ]
+                            .into_iter()
+                            .collect(),
+                        };
+
+                        let aggregator_component = wavs_types::Component {
+                            source: wavs_types::ComponentSource::Download {
+                                uri: aggregator_gateway_url.parse()?,
+                                digest: aggregator_digest.clone(),
+                            },
+                            permissions: wavs_types::Permissions {
+                                allowed_http_hosts: wavs_types::AllowedHostPermission::All,
+                                file_system: false,
+                            },
+                            fuel_limit: None,
+                            time_limit_seconds: None,
+                            config: [
+                                ("VAULT_CONTRACT_ADDRESS".to_string(), address.clone()),
+                                ("CHAIN".to_string(), args.chain.to_string()),
+                            ]
+                            .into_iter()
+                            .collect(),
+                            env_keys: Default::default(),
+                        };
+
+                        (operator_component, aggregator_component, address.clone())
+                    }
+                    _ => return Err(anyhow::anyhow!("Invalid output data format")),
+                };
+
+            let submit = wavs_types::Submit::Aggregator {
+                url: aggregator_url.to_string(),
+                component: Box::new(aggregator_component),
+                signature_kind: wavs_types::SignatureKind::evm_default(),
+            };
+
+            let workflow = wavs_types::Workflow {
+                trigger,
+                component: operator_component,
+                submit,
+            };
+
+            let service = wavs_types::Service {
+                name: "AI Portfolio Vault".to_string(),
+                workflows: [("workflow-1".parse().unwrap(), workflow)]
+                    .into_iter()
+                    .collect(),
+                status: wavs_types::ServiceStatus::Active,
+                manager: wavs_types::ServiceManager::Cosmos {
+                    chain: args.chain.clone(),
+                    address: middleware_instantiation.service_manager_address.parse()?,
+                },
+            };
+
+            let bytes = serde_json::to_vec_pretty(&service)?;
+
+            let digest = wavs_types::ServiceDigest::hash(&bytes);
+
+            let resp = IpfsFile::upload(
+                bytes,
+                "service.json",
                 ipfs_api_url.as_ref(),
                 ipfs_gateway_url.as_ref(),
                 true,
-            ).await.map_err(|e| anyhow::anyhow!("Failed to upload service to IPFS: {}", e))?;
+            )
+            .await?;
 
-            println!("Service uploaded successfully!");
-            println!("Service CID: {}", ipfs_file.cid);
-            println!("Service URI: {}", ipfs_file.uri);
-            println!("Gateway URL: {}", ipfs_file.gateway_url);
+            let IpfsFile {
+                cid,
+                uri,
+                gateway_url,
+            } = resp;
 
-            // TODO: Implement proper OutputData variant for service uploads
-            // args.output().write(OutputData::ServiceUpload { ... }).await?;
+            args.output()
+                .write(OutputData::ServiceUpload {
+                    service,
+                    digest,
+                    cid,
+                    uri: uri.clone(),
+                    gateway_url: gateway_url.clone(),
+                })
+                .await?;
+
+            println!("\nService URI: {}", uri);
+            println!("Service Gateway URL: {}\n", gateway_url);
+
             Ok(())
         }
         CliCommand::AggregatorRegisterService {
@@ -238,7 +385,10 @@ async fn main() -> anyhow::Result<()> {
             aggregator_url,
             args,
         } => {
-            println!("Registering service manager {} with aggregator at {}", service_manager_address, aggregator_url);
+            println!(
+                "Registering service manager {} with aggregator at {}",
+                service_manager_address, aggregator_url
+            );
 
             // Validate the service manager address
             let validated_address = ctx.parse_address(&service_manager_address).await?;
@@ -262,7 +412,10 @@ async fn main() -> anyhow::Result<()> {
             if response.status().is_success() {
                 let response_json: serde_json::Value = response.json().await?;
                 println!("Service registered successfully!");
-                println!("Registration response: {}", serde_json::to_string_pretty(&response_json)?);
+                println!(
+                    "Registration response: {}",
+                    serde_json::to_string_pretty(&response_json)?
+                );
             } else {
                 let error_text = response.text().await?;
                 return Err(anyhow::anyhow!("Registration failed: {}", error_text));
@@ -274,7 +427,10 @@ async fn main() -> anyhow::Result<()> {
             wavs_url,
             args,
         } => {
-            println!("Adding service manager {} to WAVS operator at {}", service_manager_address, wavs_url);
+            println!(
+                "Adding service manager {} to WAVS operator at {}",
+                service_manager_address, wavs_url
+            );
 
             // Validate the service manager address
             let validated_address = ctx.parse_address(&service_manager_address).await?;
@@ -302,7 +458,10 @@ async fn main() -> anyhow::Result<()> {
             if response.status().is_success() {
                 let response_json: serde_json::Value = response.json().await?;
                 println!("Service added to operator successfully!");
-                println!("Service configuration: {}", serde_json::to_string_pretty(&response_json)?);
+                println!(
+                    "Service configuration: {}",
+                    serde_json::to_string_pretty(&response_json)?
+                );
             } else {
                 let error_text = response.text().await?;
                 return Err(anyhow::anyhow!("Service addition failed: {}", error_text));

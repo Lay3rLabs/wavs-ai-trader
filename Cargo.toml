@@ -1,5 +1,13 @@
 [workspace]
-members = ["components/*", "contracts/*", "packages/cli", "packages/utils", "packages/tests/off-chain", "packages/tests/on-chain", "packages/tests/_common"]
+members = [
+    "components/*",
+    "contracts/*",
+    "packages/cli",
+    "packages/utils",
+    "packages/tests/off-chain",
+    "packages/tests/on-chain",
+    "packages/tests/_common",
+]
 resolver = "2"
 
 [workspace.package]
@@ -8,7 +16,7 @@ version = "0.0.1"
 license = "GPL-3.0-or-later"
 authors = ["Layer Labs (Cayman)"]
 repository = "https://github.com/Lay3rLabs/wavs-ai-trader.git"
-rust-version = "1.90.0"
+rust-version = "1.86.0"
 
 [profile.release]
 opt-level = 3

@@ -9,7 +9,9 @@ tasks:
   clean-all:
     cmds:
       - for: { var: ALL_COMPONENTS }
-        cmd: task components:clean COMPONENT={{.ITEM}}
+        task: clean
+        vars:
+          COMPONENT: "{{ .ITEM }}"
       - echo "Cleaning artifacts directory"
       - |
         rm -rf "{{.COMPONENTS_ARTIFACTS_PATH}}"
@@ -27,7 +29,9 @@ tasks:
   build-all:
     cmds:
       - for: { var: ALL_COMPONENTS }
-        cmd: task components:build COMPONENT={{.ITEM}}
+        task: build
+        vars:
+          COMPONENT: "{{.ITEM}}"
 
   build:
     requires:
@@ -37,7 +41,7 @@ tasks:
         sh: task components:src-name COMPONENT={{.COMPONENT}}
       COMPONENT_PATH: "components/{{.COMPONENT}}"
       COMPONENT_FILE: "{{.COMPONENT_SRC_NAME}}.wasm"
-      COMPONENT_PACKAGE: "{{.COMPONENT}}"
+      COMPONENT_PACKAGE: "ai-portfolio-{{.COMPONENT}}"
     cmds:
       - echo "Building component {{.COMPONENT}} at {{.COMPONENT_PATH}}"
       - cargo build --release --package {{.COMPONENT_PACKAGE}} --target wasm32-wasip2
@@ -48,7 +52,7 @@ tasks:
     requires:
       vars: [COMPONENT]
     cmds:
-      - echo "{{ replace "-" "_" .COMPONENT }}"
+      - echo "ai_portfolio_{{ replace "-" "_" .COMPONENT }}"
 
   ###################################################################
   ######################## WIT #####################################
@@ -57,7 +61,9 @@ tasks:
   clean-wit-all:
     cmds:
       - for: { var: ALL_COMPONENTS }
-        task: clean-wit-{{.ITEM}}
+        task: clean-wit
+        vars:
+          COMPONENT: "{{.ITEM}}"
 
   clean-wit:
     requires:
@@ -70,6 +76,8 @@ tasks:
     cmds:
       - for: { var: ALL_COMPONENTS }
         task: fetch-wit-{{.ITEM}}
+        vars:
+          COMPOMENT: "{{.ITEM}}"
 
   fetch-wit:
     requires:
@@ -109,3 +117,25 @@ tasks:
       - wkg get "{{.WIT_ITEM}}" --output "./components/{{.COMPONENT}}/wit/"
       - wkg wit fetch -d "./components/{{.COMPONENT}}/wit"
       - echo "Completed fetch for {{.WIT_ITEM}}"
+
+  ###################################################################
+  ######################## EXEC #####################################
+  ###################################################################
+
+  exec-operator-read-*:
+    vars:
+      READ_KIND: "{{index .MATCH 0}}"
+    cmds:
+      - >
+        docker run --rm
+        --network host
+        -v "{{.WAVS_HOME_DIR}}":/wavs-home:ro
+        -v "{{.COMPONENTS_ARTIFACTS_PATH}}":/components:ro
+        -e WAVS_HOME="/wavs-home"
+        -e CLI_MNEMONIC="{{.CLI_MNEMONIC}}"
+        -e WAVS_ENV_OPERATOR_TELEGRAM_BOT_TOKEN="{{.WAVS_OPERATOR_TELEGRAM_BOT_TOKEN}}"
+        {{.WAVS_DOCKER_IMAGE}}
+        wavs-cli exec
+        --log-level '{{.RUST_LOG | default "info"}}'
+        --component /components/operator.wasm
+        --input "read-{{.READ_KIND}}"

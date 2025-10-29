@@ -7,6 +7,7 @@ use wavs_types::ComponentDigest;
 use crate::command::{ComponentKind, ContractKind};
 
 pub struct Output {
+    pub directory: PathBuf,
     pub path: PathBuf,
     pub format: OutputFormat,
 }
@@ -57,6 +58,13 @@ pub enum OutputData {
         uri: String,
 
         /// The gateway URL for accessing the file via HTTP
+        gateway_url: String,
+    },
+    ServiceUpload {
+        service: wavs_types::Service,
+        digest: wavs_types::ServiceDigest,
+        cid: String,
+        uri: String,
         gateway_url: String,
     },
 }

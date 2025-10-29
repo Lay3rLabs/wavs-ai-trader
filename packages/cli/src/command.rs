@@ -28,10 +28,6 @@ pub enum CliCommand {
         #[arg(long, value_delimiter = ',')]
         initial_whitelisted_denoms: Vec<String>,
 
-        /// The service manager address
-        #[arg(long)]
-        service_manager: String,
-
         /// The Skip entry point address (if not provided, will use default for the chain)
         #[arg(long)]
         skip_entry_point: Option<String>,
@@ -56,7 +52,7 @@ pub enum CliCommand {
     /// Upload a service to IPFS
     UploadService {
         #[arg(long)]
-        contract_payments_instantiation_file: PathBuf,
+        contract_vault_instantiation_file: PathBuf,
 
         #[arg(long)]
         middleware_instantiation_file: PathBuf,
@@ -137,22 +133,21 @@ pub struct CliArgs {
 
 impl CliArgs {
     pub fn output(&self) -> crate::output::Output {
-        let output_path = repo_root()
+        let directory = repo_root()
             .expect("could not determine repo root")
             .join("builds")
-            .join("deployments")
-            .join(&self.output_filename);
+            .join("deployments");
+
+        let path = directory.join(&self.output_filename);
 
         // Ensure the output directory exists
-        std::fs::create_dir_all(output_path.parent().unwrap()).unwrap_or_else(|_| {
-            panic!(
-                "Failed to create output directory: {}",
-                output_path.parent().unwrap().display()
-            )
+        std::fs::create_dir_all(&directory).unwrap_or_else(|_| {
+            panic!("Failed to create output directory: {}", directory.display())
         });
 
         crate::output::Output {
-            path: output_path,
+            directory,
+            path,
             format: self.output_format,
         }
     }
@@ -207,8 +202,8 @@ impl std::fmt::Display for ComponentKind {
 impl ComponentKind {
     pub fn as_str(&self) -> &str {
         match self {
-            Self::Operator => "operator",
-            Self::Aggregator => "aggregator",
+            Self::Operator => "ai_portfolio_operator",
+            Self::Aggregator => "ai_portfolio_aggregator",
         }
     }
     pub async fn wasm_bytes(&self) -> Vec<u8> {
