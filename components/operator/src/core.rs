@@ -1,9 +1,9 @@
-use std::{cmp::Ordering, collections::BTreeMap, collections::HashMap, str::FromStr};
+use std::{cmp::Ordering, collections::HashMap, str::FromStr};
 
-use anyhow::{anyhow, ensure, Context, Result};
+use ai_portfolio_types::TradeStrategy;
+use anyhow::{anyhow, Context, Result};
 use cosmwasm_std::{Decimal256, Timestamp, Uint128, Uint256};
 use layer_climb::{prelude::Address, querier::QueryClient};
-use serde::{Deserialize, Serialize};
 use vault::{
     Payload, QueryMsg, SwapOperation as VaultSwapOperation, SwapRoute, VaultQueryMsg, VaultState,
 };
@@ -13,33 +13,6 @@ use crate::{
     skip::SkipAPIClient,
 };
 use vault::PriceInfo;
-
-#[derive(Serialize, Deserialize)]
-pub enum TradeStrategy {
-    AI, // Placeholder for now
-    Fixed(BTreeMap<String, Decimal256>),
-}
-
-impl TradeStrategy {
-    pub fn validate(&self) -> Result<()> {
-        match self {
-            TradeStrategy::AI => {}
-            TradeStrategy::Fixed(map) => {
-                let mut total = Decimal256::zero();
-                for allocation in map.values() {
-                    total = total.checked_add(*allocation)?;
-                }
-
-                ensure!(
-                    total == Decimal256::one(),
-                    "Total fixed allocation must be equal to one"
-                )
-            }
-        };
-
-        Ok(())
-    }
-}
 
 pub async fn generate_payload(
     query_client: QueryClient,

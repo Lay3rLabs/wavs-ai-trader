@@ -46,6 +46,7 @@ dependencies = [
 name = "ai-portfolio-cli"
 version = "0.0.1"
 dependencies = [
+ "ai-portfolio-types",
  "ai-portfolio-utils",
  "anyhow",
  "chrono",
@@ -67,6 +68,7 @@ dependencies = [
 name = "ai-portfolio-operator"
 version = "0.0.1"
 dependencies = [
+ "ai-portfolio-types",
  "anyhow",
  "bincode",
  "cosmwasm-std",
@@ -93,6 +95,15 @@ dependencies = [
  "serde",
  "vault",
  "wavs-types",
+]
+
+[[package]]
+name = "ai-portfolio-types"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "cosmwasm-std",
+ "serde",
 ]
 
 [[package]]

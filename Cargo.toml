@@ -7,6 +7,7 @@ members = [
     "packages/tests/off-chain",
     "packages/tests/on-chain",
     "packages/tests/_common",
+    "packages/types",
 ]
 resolver = "2"
 
@@ -33,6 +34,7 @@ overflow-checks = true
 # Local
 vault = { path = "contracts/vault", features = ["library"] }
 ai-portfolio-utils = { path = "packages/utils" }
+ai-portfolio-types = { path = "packages/types" }
 
 # WAVS
 wavs-types = { version = "=2.0.0-alpha.7", default-features = false, features = [

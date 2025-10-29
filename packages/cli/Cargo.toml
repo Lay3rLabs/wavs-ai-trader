@@ -9,6 +9,7 @@ repository.workspace = true
 [dependencies]
 vault = { workspace = true }
 ai-portfolio-utils = { workspace = true, features = ["on-chain"] }
+ai-portfolio-types = { workspace = true }
 tokio = { workspace = true }
 clap = { workspace = true }
 dotenvy = { workspace = true }

@@ -3,6 +3,7 @@ mod context;
 mod ipfs;
 mod output;
 
+use ai_portfolio_types::TradeStrategy;
 use ai_portfolio_utils::{addresses::skip_swap_entry_point, faucet, tracing::tracing_init};
 use vault::InstantiateMsg;
 
@@ -254,7 +255,7 @@ async fn main() -> anyhow::Result<()> {
             };
 
             // Extract data based on variants
-            let (operator_component, aggregator_component, vault_address) =
+            let (operator_component, aggregator_component, _vault_address) =
                 match (&component_operator, &component_aggregator, &contract_vault) {
                     (
                         OutputData::ComponentUpload {
@@ -288,7 +289,16 @@ async fn main() -> anyhow::Result<()> {
                             },
                             fuel_limit: None,
                             time_limit_seconds: None,
-                            config: Default::default(),
+                            config: [
+                                ("chain".to_string(), args.chain.to_string()),
+                                ("address".to_string(), address.clone()),
+                                (
+                                    "trade_strategy".to_string(),
+                                    serde_json::to_string(&TradeStrategy::AI)?,
+                                ),
+                            ]
+                            .into_iter()
+                            .collect(),
                             env_keys: [
                                 "WAVS_ENV_COINGECKO_API_KEY".to_string(),
                                 "WAVS_ENV_SKIP_API_KEY".to_string(),
@@ -309,8 +319,8 @@ async fn main() -> anyhow::Result<()> {
                             fuel_limit: None,
                             time_limit_seconds: None,
                             config: [
-                                ("VAULT_CONTRACT_ADDRESS".to_string(), address.clone()),
-                                ("CHAIN".to_string(), args.chain.to_string()),
+                                ("chain".to_string(), args.chain.to_string()),
+                                ("address".to_string(), address.clone()),
                             ]
                             .into_iter()
                             .collect(),
@@ -336,7 +346,7 @@ async fn main() -> anyhow::Result<()> {
 
             let service = wavs_types::Service {
                 name: "AI Portfolio Vault".to_string(),
-                workflows: [("workflow-1".parse().unwrap(), workflow)]
+                workflows: [("update_prices".parse().unwrap(), workflow)]
                     .into_iter()
                     .collect(),
                 status: wavs_types::ServiceStatus::Active,

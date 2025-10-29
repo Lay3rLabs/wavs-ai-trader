@@ -7,6 +7,7 @@ mod coingecko;
 mod core;
 mod skip;
 
+use ai_portfolio_types::TradeStrategy;
 use layer_climb::{
     prelude::{AddrKind, Address, ChainConfig, ChainId, CosmosAddr},
     querier::QueryClient,
@@ -14,7 +15,7 @@ use layer_climb::{
 use wstd::runtime::block_on;
 
 use crate::{
-    core::{generate_payload, TradeStrategy},
+    core::generate_payload,
     wavs::{operator::input::TriggerData, types::events::TriggerDataCron},
 };
 

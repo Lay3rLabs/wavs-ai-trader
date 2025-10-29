@@ -7,6 +7,8 @@ services:
       - WAVS_SUBMISSION_MNEMONIC=${WAVS_OPERATOR_MNEMONIC:-}
       - RUST_LOG=${WAVS_LOG_LEVEL:-}
       - WAVS_LOG_LEVEL=${WAVS_LOG_LEVEL:-}
+      - WAVS_ENV_COINGECKO_API_KEY=${WAVS_ENV_COINGECKO_API_KEY:-}
+      - WAVS_ENV_SKIP_API_KEY=${WAVS_ENV_SKIP_API_KEY:-}
     command:
       [
         "wavs",
