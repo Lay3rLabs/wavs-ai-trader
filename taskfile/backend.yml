@@ -71,20 +71,20 @@ tasks:
     cmds:
       - |
         cd "{{.REPO_ROOT}}/backend/chains/rehearsal"
-        make start-mainnet-fork
+        {{.DOCKER_SUDO}} make start-mainnet-fork
 
   build-neutron:
     cmds:
       - |
         cd "{{.REPO_ROOT}}/backend/chains/rehearsal"
-        make build-mainnet-fork-image
-        make build-oracle
+        {{.DOCKER_SUDO}} make build-mainnet-fork-image
+        {{.DOCKER_SUDO}} make build-oracle
 
   stop-chains:
     cmds:
       - |
         cd "{{.REPO_ROOT}}/backend/chains/rehearsal"
-        make stop-mainnet-fork
+        {{.DOCKER_SUDO}} make stop-mainnet-fork
 
   ###################################################################
   ######################## SERVER ###################################
