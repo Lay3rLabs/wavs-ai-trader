@@ -3,6 +3,7 @@ import { Hero } from "../components/Hero";
 import { VaultStats } from "../components/VaultStats";
 import { DepositWithdraw } from "../components/DepositWithdraw";
 import { PendingDeposits } from "../components/PendingDeposits";
+import { TradeHistory } from "../components/TradeHistory";
 
 export default function Home() {
   return (
@@ -13,6 +14,7 @@ export default function Home() {
         <VaultStats />
         <DepositWithdraw />
         <PendingDeposits />
+        <TradeHistory />
       </main>
       <footer className="border-t border-zinc-200 bg-white dark:border-zinc-800 dark:bg-black">
         <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">

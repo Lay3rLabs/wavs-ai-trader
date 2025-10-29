@@ -30,12 +30,29 @@ export function DepositWithdraw() {
     try {
       // Convert amount to microunits (multiply by 1,000,000)
       const microAmount = (parseFloat(amount) * 1_000_000).toString();
-      await deposit(microAmount, selectedDenom);
-      setSuccess('Deposit submitted successfully! Waiting for price update to process.');
+      console.log('Starting deposit with microAmount:', microAmount, 'denom:', selectedDenom);
+
+      const result = await deposit(microAmount, selectedDenom);
+
+      // Double check the result before showing success
+      if (!result) {
+        throw new Error('No transaction result received');
+      }
+
+      console.log('Deposit completed successfully:', result);
+
+      const txHash = result?.transactionHash || result?.hash || result?.txhash || 'unknown';
+      setSuccess(`Deposit successful! Transaction: ${txHash}`);
       setAmount('');
+      setSelectedDenom('');
+
+      // Show success alert
+      alert(`Deposit successful! Transaction hash: ${txHash}`);
     } catch (err) {
-      console.error('Deposit error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to deposit');
+      console.error('Deposit error details:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to deposit';
+      setError(errorMessage);
+      alert(`❌ Deposit failed: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -52,12 +69,28 @@ export function DepositWithdraw() {
     setSuccess(null);
 
     try {
-      await withdraw(amount);
-      setSuccess('Withdrawal successful!');
+      console.log('Starting withdrawal with shares:', amount);
+
+      const result = await withdraw(amount);
+
+      // Double check the result before showing success
+      if (!result) {
+        throw new Error('No transaction result received');
+      }
+
+      console.log('Withdrawal completed successfully:', result);
+
+      const txHash = result?.transactionHash || result?.hash || result?.txhash || 'unknown';
+      setSuccess(`Withdrawal successful! Transaction: ${txHash}`);
       setAmount('');
+
+      // Show success alert
+      alert(`Withdrawal successful! Transaction hash: ${txHash}`);
     } catch (err) {
-      console.error('Withdrawal error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to withdraw');
+      console.error('Withdrawal error details:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to withdraw';
+      setError(errorMessage);
+      alert(`❌ Withdrawal failed: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }

@@ -44,9 +44,24 @@ export function useVault() {
         queryClient.listDepositRequests({ limit: 10 }),
       ]);
 
+      console.log('All deposits:', deposits);
+      console.log('Deposits with states:', deposits.map(d => ({ id: d.id, state: d.state })));
+
       setVaultState(state);
       setWhitelistedDenoms(denoms);
-      setPendingDeposits(deposits.filter((d) => d.state === "pending"));
+
+      // Filter for pending deposits - state can be either "pending" string or object without completed
+      const pending = deposits.filter((d) => {
+        // Handle both string "pending" and object form
+        if (typeof d.state === 'string') {
+          return d.state === "pending";
+        }
+        // If it's an object, check if it doesn't have "completed" property
+        return !('completed' in d.state);
+      });
+
+      console.log('Filtered pending deposits:', pending);
+      setPendingDeposits(pending);
     } catch (err) {
       console.error("Error fetching vault data:", err);
       setError(
@@ -86,16 +101,40 @@ export function useVault() {
       throw new Error("Wallet not connected");
     }
 
-    const vaultClient = new VaultClient(
-      client,
-      address,
-      VAULT_CONTRACT_ADDRESS
-    );
-    const funds: Coin[] = [{ amount, denom }];
+    try {
+      const vaultClient = new VaultClient(
+        client,
+        address,
+        VAULT_CONTRACT_ADDRESS
+      );
+      const funds: Coin[] = [{ amount, denom }];
 
-    const result = await vaultClient.deposit("auto", undefined, funds);
-    await fetchVaultData();
-    return result;
+      console.log("Calling vaultClient.deposit with funds:", funds);
+      const result = await vaultClient.deposit("auto", undefined, funds);
+      console.log("Deposit transaction result (full):", JSON.stringify(result, null, 2));
+      console.log("Result code:", result?.code);
+      console.log("Result rawLog:", result?.rawLog);
+
+      // Check for transaction failure - only fail if we have explicit error indicators
+      if (result?.code !== undefined && result?.code !== 0) {
+        const errorMsg = result?.rawLog || result?.log || 'Transaction failed';
+        console.error("Transaction failed with code:", result.code, errorMsg);
+        throw new Error(`Transaction failed: ${errorMsg}`);
+      }
+
+      // Additional check for empty result
+      if (!result || (typeof result === 'object' && Object.keys(result).length === 0)) {
+        console.error("Empty transaction result received");
+        throw new Error("Transaction failed: No result returned");
+      }
+
+      console.log("Transaction succeeded!");
+      await fetchVaultData();
+      return result;
+    } catch (error) {
+      console.error("Deposit transaction error:", error);
+      throw error;
+    }
   };
 
   // Withdraw shares
@@ -106,17 +145,42 @@ export function useVault() {
       throw new Error("Wallet not connected");
     }
 
-    console.log("Client object:", client);
+    try {
+      console.log("Client object:", client);
 
-    const vaultClient = new VaultClient(
-      client,
-      address,
-      VAULT_CONTRACT_ADDRESS
-    );
-    const result = await vaultClient.withdraw({ shares }, "auto");
-    await fetchVaultData();
-    await fetchUserShares();
-    return result;
+      const vaultClient = new VaultClient(
+        client,
+        address,
+        VAULT_CONTRACT_ADDRESS
+      );
+
+      console.log("Calling vaultClient.withdraw with shares:", shares);
+      const result = await vaultClient.withdraw({ shares }, "auto");
+      console.log("Withdraw transaction result (full):", JSON.stringify(result, null, 2));
+      console.log("Result code:", result?.code);
+      console.log("Result rawLog:", result?.rawLog);
+
+      // Check for transaction failure - only fail if we have explicit error indicators
+      if (result?.code !== undefined && result?.code !== 0) {
+        const errorMsg = result?.rawLog || result?.log || 'Transaction failed';
+        console.error("Transaction failed with code:", result.code, errorMsg);
+        throw new Error(`Transaction failed: ${errorMsg}`);
+      }
+
+      // Additional check for empty result
+      if (!result || (typeof result === 'object' && Object.keys(result).length === 0)) {
+        console.error("Empty transaction result received");
+        throw new Error("Transaction failed: No result returned");
+      }
+
+      console.log("Transaction succeeded!");
+      await fetchVaultData();
+      await fetchUserShares();
+      return result;
+    } catch (error) {
+      console.error("Withdraw transaction error:", error);
+      throw error;
+    }
   };
 
   // Refresh data periodically

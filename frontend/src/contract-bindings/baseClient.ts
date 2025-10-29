@@ -75,7 +75,8 @@ export const calculateGasFromChain = (
 };
 
 // Default gas amount - users can easily change this
-export let DEFAULT_GAS_AMOUNT = "200000";
+// Increased from 200000 to 300000 to handle deposit transactions
+export let DEFAULT_GAS_AMOUNT = "300000";
 
 // Allow users to set their preferred default gas amount
 export const setDefaultGasAmount = (gasAmount: string): void => {

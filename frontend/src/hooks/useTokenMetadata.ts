@@ -122,6 +122,9 @@ export function formatTokenAmount(
     } else if (num >= 1000) {
       return `${(num / 1000).toFixed(2)}K`;
     }
+    if (10 >= num && num > 0) {
+      return num.toFixed(decimals);
+    }
     return num.toFixed(2);
   } catch {
     return "0.00";
