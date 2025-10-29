@@ -28,6 +28,11 @@ tasks:
       - for: { var: ALL_CONTRACTS }
         cmd: task contracts:build CONTRACT={{.ITEM}}
 
+  build-all-schemas:
+    cmds:
+      - for: { var: ALL_CONTRACTS }
+        cmd: task contracts:build-schema CONTRACT={{.ITEM}}
+
   build:
     requires:
       vars: [CONTRACT]
@@ -52,6 +57,18 @@ tasks:
       - |
         {{.DOCKER_SUDO}} rm -rf "./artifacts/{{.CONTRACT_FILE}}" || true
       - echo "Built contract at {{.CONTRACTS_ARTIFACTS_PATH}}/{{.CONTRACT_FILE}}"
+
+  build-schema:
+    requires:
+      vars: [CONTRACT]
+    vars:
+      CONTRACT_SRC_NAME:
+        sh: task contracts:src-name CONTRACT_KIND={{.CONTRACT}}
+      CONTRACT_PATH: "contracts/{{.CONTRACT}}"
+    cmds:
+      - |
+        cd {{.CONTRACT_PATH}}
+        cargo schema
 
   src-name:
     requires:

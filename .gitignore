@@ -26,3 +26,5 @@ wit/
 Cargo-component.lock
 .claude/
 .env
+**/schema/cw_schema/*
+**/schema/raw/*
