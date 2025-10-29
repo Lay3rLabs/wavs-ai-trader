@@ -1,7 +1,7 @@
+use ai_portfolio_utils::addr::AnyAddr;
+use ai_portfolio_utils::client::vault::{VaultExecutor, VaultQuerier};
 use cosmwasm_std::{Addr, Coin};
 use cw_multi_test::{ContractWrapper, Executor};
-use ai_portfolio_utils::client::vault::{VaultExecutor, VaultQuerier};
-use ai_portfolio_utils::addr::AnyAddr;
 
 use crate::client::AppClient;
 
@@ -19,11 +19,7 @@ impl VaultClient {
     }
 
     pub fn new_with_admin(app_client: AppClient, admin: Addr) -> Self {
-        let contract = ContractWrapper::new(
-            vault::execute,
-            vault::instantiate,
-            vault::query,
-        );
+        let contract = ContractWrapper::new(vault::execute, vault::instantiate, vault::query);
         let code_id = app_client.with_app_mut(|app| app.store_code(Box::new(contract)));
 
         let msg = vault::msg::InstantiateMsg {
@@ -37,14 +33,25 @@ impl VaultClient {
         };
 
         let address = app_client.with_app_mut(|app| {
-            app.instantiate_contract(code_id, admin.clone(), &msg, &[], "ai-portfolio-vault", None)
-                .unwrap()
+            app.instantiate_contract(
+                code_id,
+                admin.clone(),
+                &msg,
+                &[],
+                "ai-portfolio-vault",
+                None,
+            )
+            .unwrap()
         });
 
         let querier = VaultQuerier::new(app_client.querier.clone(), address.clone().into());
         let executor = VaultExecutor::new(app_client.executor.clone(), address.clone().into());
 
-        Self { querier, executor, address }
+        Self {
+            querier,
+            executor,
+            address,
+        }
     }
 
     /// Execute a deposit to the vault
@@ -54,7 +61,11 @@ impl VaultClient {
     }
 
     /// Execute a withdrawal from the vault
-    pub async fn withdraw(&self, signer: &AnyAddr, shares: cosmwasm_std::Uint256) -> anyhow::Result<()> {
+    pub async fn withdraw(
+        &self,
+        signer: &AnyAddr,
+        shares: cosmwasm_std::Uint256,
+    ) -> anyhow::Result<()> {
         self.executor.withdraw(signer, shares).await?;
         Ok(())
     }
@@ -63,7 +74,9 @@ impl VaultClient {
     pub async fn update_prices(&self, prices: Vec<vault::msg::PriceInfo>) -> anyhow::Result<()> {
         // The update_prices method requires the contract to be the sender
         // This is a contract self-execution pattern
-        self.executor.update_prices_direct(&self.address, prices, None).await?;
+        self.executor
+            .update_prices_direct(&self.address, prices, None)
+            .await?;
         Ok(())
     }
 
@@ -78,7 +91,9 @@ impl VaultClient {
         let owner_addr = ownership.owner.unwrap();
 
         // Use the actual owner address for the operation
-        self.executor.update_whitelist_direct(&owner_addr, to_add, to_remove).await?;
+        self.executor
+            .update_whitelist_direct(&owner_addr, to_add, to_remove)
+            .await?;
         Ok(())
     }
 }

@@ -110,7 +110,7 @@ async fn main() -> anyhow::Result<()> {
                 .contract_instantiate(
                     None,
                     code_id,
-                    "AI Portfolio Vault",
+                    "WAVS Portfolio Vault",
                     &instantiate_msg,
                     vec![],
                     None,

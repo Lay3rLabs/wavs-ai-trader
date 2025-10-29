@@ -1,8 +1,8 @@
 //! Vault contract abstraction for different backends (Climb, Climb Pool, MultiTest)
 //! Define helper methods here and they'll be available for all backends
 
-use anyhow::{Result, anyhow};
-use cosmwasm_std::{Coin, Decimal256, Uint256, Addr};
+use anyhow::{anyhow, Result};
+use cosmwasm_std::{Addr, Coin, Decimal256, Uint256};
 use serde::de::DeserializeOwned;
 use std::fmt::Debug;
 
@@ -174,23 +174,26 @@ impl VaultExecutor {
         #[cfg(feature = "multitest")]
         {
             match &self.inner {
-                AnyExecutor::MultiTest { app, .. } => {
-                    app.borrow_mut()
-                        .execute_contract(
-                            signer.clone().into(),
-                            self.addr.clone().into(),
-                            &ExecuteMsg::Vault(VaultExecuteMsg::Deposit {}),
-                            funds,
-                        )
-                        .map(AnyTxResponse::MultiTest)
-                        .map_err(|e| anyhow!("StdError: {}", e))
-                },
-                _ => self.exec(&ExecuteMsg::Vault(VaultExecuteMsg::Deposit {}), funds).await
+                AnyExecutor::MultiTest { app, .. } => app
+                    .borrow_mut()
+                    .execute_contract(
+                        signer.clone().into(),
+                        self.addr.clone().into(),
+                        &ExecuteMsg::Vault(VaultExecuteMsg::Deposit {}),
+                        funds,
+                    )
+                    .map(AnyTxResponse::MultiTest)
+                    .map_err(|e| anyhow!("StdError: {}", e)),
+                _ => {
+                    self.exec(&ExecuteMsg::Vault(VaultExecuteMsg::Deposit {}), funds)
+                        .await
+                }
             }
         }
         #[cfg(not(feature = "multitest"))]
         {
-            self.exec(&ExecuteMsg::Vault(VaultExecuteMsg::Deposit {}), funds).await
+            self.exec(&ExecuteMsg::Vault(VaultExecuteMsg::Deposit {}), funds)
+                .await
         }
     }
 
@@ -199,21 +202,23 @@ impl VaultExecutor {
         #[cfg(feature = "multitest")]
         {
             match &self.inner {
-                AnyExecutor::MultiTest { app, .. } => {
-                    app.borrow_mut()
-                        .execute_contract(
-                            signer.clone().into(),
-                            self.addr.clone().into(),
-                            &ExecuteMsg::Vault(VaultExecuteMsg::Withdraw { shares }),
-                            &[],
-                        )
-                        .map(AnyTxResponse::MultiTest)
-                        .map_err(|e| anyhow!("StdError: {}", e))
-                },
-                _ => self.exec(
-                    &ExecuteMsg::Vault(VaultExecuteMsg::Withdraw { shares }),
-                    &[],
-                ).await
+                AnyExecutor::MultiTest { app, .. } => app
+                    .borrow_mut()
+                    .execute_contract(
+                        signer.clone().into(),
+                        self.addr.clone().into(),
+                        &ExecuteMsg::Vault(VaultExecuteMsg::Withdraw { shares }),
+                        &[],
+                    )
+                    .map(AnyTxResponse::MultiTest)
+                    .map_err(|e| anyhow!("StdError: {}", e)),
+                _ => {
+                    self.exec(
+                        &ExecuteMsg::Vault(VaultExecuteMsg::Withdraw { shares }),
+                        &[],
+                    )
+                    .await
+                }
             }
         }
         #[cfg(not(feature = "multitest"))]
@@ -221,7 +226,8 @@ impl VaultExecutor {
             self.exec(
                 &ExecuteMsg::Vault(VaultExecuteMsg::Withdraw { shares }),
                 &[],
-            ).await
+            )
+            .await
         }
     }
 
@@ -263,27 +269,29 @@ impl VaultExecutor {
         swap_routes: Option<Vec<vault::SwapRoute>>,
     ) -> Result<AnyTxResponse> {
         match &self.inner {
-            AnyExecutor::MultiTest { app, .. } => {
-                app.borrow_mut()
-                    .execute_contract(
-                        signer.clone(),
-                        self.addr.clone().into(),
-                        &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
-                            prices,
-                            swap_routes,
-                        }),
-                        &[],
-                    )
-                    .map(AnyTxResponse::MultiTest)
-                    .map_err(|e| anyhow!("StdError: {}", e))
-            },
-            _ => self.exec(
-                &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
-                    prices,
-                    swap_routes,
-                }),
-                &[],
-            ).await
+            AnyExecutor::MultiTest { app, .. } => app
+                .borrow_mut()
+                .execute_contract(
+                    signer.clone(),
+                    self.addr.clone().into(),
+                    &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
+                        prices,
+                        swap_routes,
+                    }),
+                    &[],
+                )
+                .map(AnyTxResponse::MultiTest)
+                .map_err(|e| anyhow!("StdError: {}", e)),
+            _ => {
+                self.exec(
+                    &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
+                        prices,
+                        swap_routes,
+                    }),
+                    &[],
+                )
+                .await
+            }
         }
     }
 
@@ -296,21 +304,23 @@ impl VaultExecutor {
         to_remove: Option<Vec<String>>,
     ) -> Result<AnyTxResponse> {
         match &self.inner {
-            AnyExecutor::MultiTest { app, .. } => {
-                app.borrow_mut()
-                    .execute_contract(
-                        signer.clone(),
-                        self.addr.clone().into(),
-                        &ExecuteMsg::Vault(VaultExecuteMsg::UpdateWhitelist { to_add, to_remove }),
-                        &[],
-                    )
-                    .map(AnyTxResponse::MultiTest)
-                    .map_err(|e| anyhow!("StdError: {}", e))
-            },
-            _ => self.exec(
-                &ExecuteMsg::Vault(VaultExecuteMsg::UpdateWhitelist { to_add, to_remove }),
-                &[],
-            ).await
+            AnyExecutor::MultiTest { app, .. } => app
+                .borrow_mut()
+                .execute_contract(
+                    signer.clone(),
+                    self.addr.clone().into(),
+                    &ExecuteMsg::Vault(VaultExecuteMsg::UpdateWhitelist { to_add, to_remove }),
+                    &[],
+                )
+                .map(AnyTxResponse::MultiTest)
+                .map_err(|e| anyhow!("StdError: {}", e)),
+            _ => {
+                self.exec(
+                    &ExecuteMsg::Vault(VaultExecuteMsg::UpdateWhitelist { to_add, to_remove }),
+                    &[],
+                )
+                .await
+            }
         }
     }
 }

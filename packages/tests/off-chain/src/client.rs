@@ -1,7 +1,7 @@
 //! Abstraction specifically for the off-chain multi-test environment
 pub mod vault;
-use std::{cell::RefCell, rc::Rc};
 use ai_portfolio_utils::client::{AnyExecutor, AnyQuerier};
+use std::{cell::RefCell, rc::Rc};
 
 use cosmwasm_std::{Addr, Coin};
 use cw_multi_test::App;
@@ -127,9 +127,7 @@ impl AppClient {
     /// Get balance for an address
     pub fn get_balance(&self, address: &Addr, denom: &str) -> u128 {
         self.with_app(|app| {
-            let balance = app.wrap()
-                .query_balance(address, denom)
-                .unwrap();
+            let balance = app.wrap().query_balance(address, denom).unwrap();
             balance.amount.to_string().parse().unwrap()
         })
     }

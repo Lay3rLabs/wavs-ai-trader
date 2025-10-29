@@ -1,19 +1,17 @@
-use off_chain_tests::client::{vault::VaultClient, AppClient};
-use ai_portfolio_utils::tracing::tracing_init;
 use ai_portfolio_test_common::shared_tests::vault::{
-    test_vault_instantiation as shared_test_instantiation,
+    get_admin, test_vault_comprehensive_workflow as shared_test_comprehensive_workflow,
     test_vault_deposit as shared_test_deposit,
-    test_vault_whitelist_management as shared_test_whitelist_management,
-    test_vault_price_updates as shared_test_price_updates,
-    test_vault_withdrawal as shared_test_withdrawal,
     test_vault_error_handling as shared_test_error_handling,
-    test_vault_comprehensive_workflow as shared_test_comprehensive_workflow,
-    get_admin,
-    VaultInstantiationProps, VaultDepositProps, VaultWhitelistProps,
-    VaultPriceUpdateProps, VaultWithdrawalProps, VaultErrorHandlingProps,
-    VaultComprehensiveWorkflowProps
+    test_vault_instantiation as shared_test_instantiation,
+    test_vault_price_updates as shared_test_price_updates,
+    test_vault_whitelist_management as shared_test_whitelist_management,
+    test_vault_withdrawal as shared_test_withdrawal, VaultComprehensiveWorkflowProps,
+    VaultDepositProps, VaultErrorHandlingProps, VaultInstantiationProps, VaultPriceUpdateProps,
+    VaultWhitelistProps, VaultWithdrawalProps,
 };
-use cosmwasm_std::{coin, coins, Uint256, Decimal256};
+use ai_portfolio_utils::tracing::tracing_init;
+use cosmwasm_std::{coin, coins, Decimal256, Uint256};
+use off_chain_tests::client::{vault::VaultClient, AppClient};
 use std::str::FromStr;
 
 #[tokio::test]
@@ -24,7 +22,7 @@ async fn test_vault_initialization() {
     let vault = VaultClient::new(app_client.clone());
 
     // Check that ownership is set correctly
-    get_admin(&vault.querier, &app_client.admin().to_string()).await;
+    get_admin(&vault.querier, app_client.admin().as_ref()).await;
 
     // Test vault initialization with shared test logic
     shared_test_instantiation(
@@ -38,7 +36,8 @@ async fn test_vault_initialization() {
             ],
             skip_entry_point: app_client.admin().to_string(),
         },
-    ).await;
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -57,21 +56,21 @@ async fn test_vault_single_deposit() {
             user_addr: user1.into(),
             deposit_amount: coins(100_000_000, "uatom"),
         },
-    ).await;
+    )
+    .await;
 
     // Update prices to process the deposit
     shared_test_price_updates(
         &vault.querier,
         &vault.executor,
         VaultPriceUpdateProps {
-            prices: vec![
-                vault::msg::PriceInfo {
-                    denom: "uatom".to_string(),
-                    price_usd: Decimal256::from_str("10.0").unwrap(),
-                },
-            ],
+            prices: vec![vault::msg::PriceInfo {
+                denom: "uatom".to_string(),
+                price_usd: Decimal256::from_str("10.0").unwrap(),
+            }],
         },
-    ).await;
+    )
+    .await;
 
     // Check that vault has assets and shares
     let total_shares = vault.querier.total_shares().await.unwrap();
@@ -103,7 +102,8 @@ async fn test_vault_multi_denom_deposit() {
                 coin(20_000_000, "ujuno"),
             ],
         },
-    ).await;
+    )
+    .await;
 
     // Update prices for all denominations
     shared_test_price_updates(
@@ -125,7 +125,8 @@ async fn test_vault_multi_denom_deposit() {
                 },
             ],
         },
-    ).await;
+    )
+    .await;
 
     // Verify total vault value: (50M * 10) + (30M * 2) + (20M * 5) = 500M + 60M + 100M = 660M
     let vault_value = vault.querier.vault_value().await.unwrap();
@@ -148,21 +149,21 @@ async fn test_vault_withdrawal() {
             user_addr: user1.clone().into(),
             deposit_amount: coins(100_000_000, "uatom"),
         },
-    ).await;
+    )
+    .await;
 
     // Update prices to process the deposit
     shared_test_price_updates(
         &vault.querier,
         &vault.executor,
         VaultPriceUpdateProps {
-            prices: vec![
-                vault::msg::PriceInfo {
-                    denom: "uatom".to_string(),
-                    price_usd: Decimal256::from_str("10.0").unwrap(),
-                },
-            ],
+            prices: vec![vault::msg::PriceInfo {
+                denom: "uatom".to_string(),
+                price_usd: Decimal256::from_str("10.0").unwrap(),
+            }],
         },
-    ).await;
+    )
+    .await;
 
     // Get total shares and withdraw half
     let total_shares = vault.querier.total_shares().await.unwrap();
@@ -177,7 +178,8 @@ async fn test_vault_withdrawal() {
             shares: withdraw_shares,
             expected_minimum_withdrawal: Uint256::from(40_000_000u64), // Approximate half of deposit value
         },
-    ).await;
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -201,7 +203,8 @@ async fn test_vault_whitelist_management() {
                 "uwasm".to_string(),
             ],
         },
-    ).await;
+    )
+    .await;
 
     // Test removing token from whitelist
     shared_test_whitelist_management(
@@ -216,7 +219,8 @@ async fn test_vault_whitelist_management() {
                 "ujuno".to_string(),
             ],
         },
-    ).await;
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -246,7 +250,8 @@ async fn test_vault_price_updates() {
                 },
             ],
         },
-    ).await;
+    )
+    .await;
 
     // Verify prices were set correctly
     let vault_state = vault.querier.vault_state().await.unwrap();
@@ -274,7 +279,8 @@ async fn test_vault_error_handling() {
             invalid_denom: "nonwhitelisted".to_string(),
             invalid_amount: Uint256::from(1_000_000u64),
         },
-    ).await;
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -286,15 +292,18 @@ async fn test_vault_deposit_non_whitelisted_denom() {
     let user1 = app_client.with_app(|app| app.api().addr_make("user1"));
 
     // Test deposit with non-whitelisted token
-    let result = vault.deposit(
-        &user1.into(),
-        &coins(100_000, "nonwhitelisted"),
-    ).await;
+    let result = vault
+        .deposit(&user1.into(), &coins(100_000, "nonwhitelisted"))
+        .await;
 
     // Should fail
     assert!(result.is_err());
     let error_msg = result.unwrap_err().to_string();
-    assert!(error_msg.contains("Cannot Sub") || error_msg.contains("Overflow") || error_msg.contains("Token not whitelisted"));
+    assert!(
+        error_msg.contains("Cannot Sub")
+            || error_msg.contains("Overflow")
+            || error_msg.contains("Token not whitelisted")
+    );
 }
 
 #[tokio::test]
@@ -327,5 +336,6 @@ async fn test_vault_comprehensive_workflow() {
             ],
             new_whitelist_denom: "uwasm".to_string(),
         },
-    ).await;
+    )
+    .await;
 }
