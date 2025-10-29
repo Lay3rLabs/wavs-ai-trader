@@ -62,12 +62,29 @@ tasks:
 
   start-chains:
     cmds:
-      - "{{.CHAINS_DIR}}/start_neutron.sh"
+      - task: start-neutron
+
+  start-neutron:
+    desc: "Start the local Neutron fork via neutronorg/rehearsal and fund required wallets"
+    env:
+      CHAINID: "neutron-fork-1"
+    cmds:
+      - |
+        cd "{{.REPO_ROOT}}/backend/chains/rehearsal"
+        make start-mainnet-fork
+
+  build-neutron:
+    cmds:
+      - |
+        cd "{{.REPO_ROOT}}/backend/chains/rehearsal"
+        make build-mainnet-fork-image
+        make build-oracle
 
   stop-chains:
     cmds:
-      - docker kill neutron-fork || true
-      - docker rm neutron-fork || true
+      - |
+        cd "{{.REPO_ROOT}}/backend/chains/rehearsal"
+        make stop-mainnet-fork
 
   ###################################################################
   ######################## SERVER ###################################

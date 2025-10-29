@@ -1,0 +1,3 @@
+[submodule "backend/chains/rehearsal"]
+	path = backend/chains/rehearsal
+	url = https://github.com/hadronlabs-org/rehearsal
