@@ -104,6 +104,7 @@ dependencies = [
  "anyhow",
  "cosmwasm-std",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

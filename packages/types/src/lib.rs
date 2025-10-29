@@ -1,10 +1,10 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, str::FromStr};
 
 use anyhow::{ensure, Result};
 use cosmwasm_std::Decimal256;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum TradeStrategy {
     AI, // Placeholder for now
     Fixed(BTreeMap<String, Decimal256>),
@@ -28,5 +28,12 @@ impl TradeStrategy {
         };
 
         Ok(())
+    }
+}
+
+impl FromStr for TradeStrategy {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s).map_err(|e| format!("Invalid JSON: {e}"))
     }
 }

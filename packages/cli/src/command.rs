@@ -1,4 +1,5 @@
 use crate::output::OutputFormat;
+use ai_portfolio_types::TradeStrategy;
 use ai_portfolio_utils::path::repo_root;
 use clap::{Parser, ValueEnum};
 use reqwest::Url;
@@ -65,6 +66,9 @@ pub enum CliCommand {
 
         #[arg(long)]
         cron_schedule: String,
+
+        #[arg(long)]
+        trade_strategy: TradeStrategy,
 
         #[arg(long)]
         aggregator_url: Url,

@@ -3,7 +3,6 @@ mod context;
 mod ipfs;
 mod output;
 
-use ai_portfolio_types::TradeStrategy;
 use ai_portfolio_utils::{addresses::skip_swap_entry_point, faucet, tracing::tracing_init};
 use vault::InstantiateMsg;
 
@@ -194,6 +193,7 @@ async fn main() -> anyhow::Result<()> {
             component_operator_cid_file,
             component_aggregator_cid_file,
             cron_schedule,
+            trade_strategy,
             aggregator_url,
             ipfs_api_url,
             ipfs_gateway_url,
@@ -294,7 +294,7 @@ async fn main() -> anyhow::Result<()> {
                                 ("address".to_string(), address.clone()),
                                 (
                                     "trade_strategy".to_string(),
-                                    serde_json::to_string(&TradeStrategy::AI)?,
+                                    serde_json::to_string(&trade_strategy)?,
                                 ),
                             ]
                             .into_iter()
