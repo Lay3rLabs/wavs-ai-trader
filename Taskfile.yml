@@ -17,7 +17,7 @@ tasks:
   setup:
     cmds:
       - git submodule update --init --recursive
-      - task backend:build-neutron
+      - defer: task backend:build-neutron
 
   lint:
     desc: "Run code formatting and linting checks"
