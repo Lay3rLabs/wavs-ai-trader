@@ -8,7 +8,6 @@ includes:
   backend: ./taskfile/backend.yml
   deploy: ./taskfile/deploy.yml
   test: ./taskfile/test.yml
-  cli: ./taskfile/cli.yml
 
 tasks:
   default:
@@ -21,3 +20,8 @@ tasks:
       - cargo fmt --all -- --check
       - cargo fix --allow-dirty --allow-staged
       - cargo clippy --all-targets -- -D warnings
+
+  clean:
+    desc: "Clean all artifacts"
+    cmds:
+      - rm -rf "{{.ARTIFCACTS_PATH}}"

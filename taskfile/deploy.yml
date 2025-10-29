@@ -1,5 +1,10 @@
 version: "3"
 
+includes:
+  config:
+    taskfile: ./config.yml
+    flatten: true
+
 tasks:
   contract-upload:
     requires:
@@ -26,15 +31,107 @@ tasks:
     cmds:
       - cd packages/cli && cargo run upload-component --kind {{.COMPONENT}} --output-filename={{.FILENAME}} --ipfs-api-url {{.IPFS_API_URL}} --ipfs-gateway-url {{.IPFS_GATEWAY_URL}}
 
-  upload-service:
+  instantiate-mirror-stake:
+    requires:
+      vars: [REGISTRY_CODE_ID, MANAGER_CODE_ID, CODE_ID, FILENAME]
+    vars:
+      THRESHOLD: 1000
+      STRATEGIES: "test_strategy_1=100 test_strategy_2=200"
+    cmds:
+      - mkdir -p "{{.ARTIFACTS_PATH}}"
+      - >
+        {{.DOCKER_SUDO}} docker run --rm
+        --network host
+        -v "{{.WAVS_HOME_DIR}}":/wavs-home:ro
+        -v "{{.DEPLOYMENTS_ARTIFACTS_PATH}}":/output
+        -e CHAIN_KEY="{{.CHAIN_KEY}}"
+        -e WAVS_HOME="/wavs-home"
+        -e CLI_MNEMONIC="{{.CLI_MNEMONIC}}"
+        {{.WAVS_CW_MIDDLEWARE_DOCKER_IMAGE}}
+        registry instantiate-mirror-stake
+        --code-id {{.REGISTRY_CODE_ID}}
+        --service-manager-code-id {{.MANAGER_CODE_ID}}
+        --threshold-weight {{.THRESHOLD}}
+        --strategy {{.STRATEGIES}}
+        --output-path "/output/{{.FILENAME}}"
+
+  service-upload:
     requires:
       vars:
         [
-          TRIGGER_ADDR,
-          SERVICE_HANDLER_ADDR,
-          SERVICE_MANAGER_ADDR,
-          OPERATOR_COMPONENT_URL,
-          AGGREGATOR_COMPONENT_URL,
+          CONTRACT_PAYMENTS,
+          MIDDLEWARE,
+          COMPONENT_OPERATOR,
+          COMPONENT_AGGREGATOR,
+          FILENAME,
         ]
+    vars:
+      IPFS_API_URL: "http://127.0.0.1:{{.IPFS_API_PORT}}"
+      IPFS_GATEWAY_URL: "http://127.0.0.1:{{.IPFS_GATEWAY_PORT}}"
+      AGGREGATOR_URL: "http://127.0.0.1:{{.WAVS_AGGREGATOR_PORT}}"
     cmds:
-      - cd packages/cli && cargo run upload-service
+      - >
+        cd packages/cli && cargo run upload-service
+        --output-filename={{.FILENAME}}
+        --ipfs-api-url {{.IPFS_API_URL}}
+        --ipfs-gateway-url {{.IPFS_GATEWAY_URL}}
+        --contract-payments-instantiation-file "{{.CONTRACT_PAYMENTS}}"
+        --middleware-instantiation-file "{{.MIDDLEWARE}}"
+        --component-operator-cid-file "{{.COMPONENT_OPERATOR}}"
+        --component-aggregator-cid-file "{{.COMPONENT_AGGREGATOR}}"
+        --cron-schedule "{{.SERVICE_CRON_SCHEDULE}}"
+        --aggregator-url {{.AGGREGATOR_URL}}
+
+  middleware-set-service-uri:
+    deps: [assert-account-exists]
+    requires:
+      vars: [ADDR, URI]
+    cmds:
+      - >
+        {{.DOCKER_SUDO}} docker run --rm
+        --network host
+        -v "{{.WAVS_HOME_DIR}}":/wavs-home:ro
+        -v "{{.DEPLOYMENTS_ARTIFACTS_PATH}}":/output
+        -e CHAIN_KEY="{{.CHAIN_KEY}}"
+        -e WAVS_HOME="/wavs-home"
+        -e CLI_MNEMONIC="{{.CLI_MNEMONIC}}"
+        {{.WAVS_CW_MIDDLEWARE_DOCKER_IMAGE}}
+        service-manager set-service-uri
+        --address "{{.ADDR}}"
+        --uri "{{.URI}}"
+
+  aggregator-register-service:
+    requires:
+      vars: [ADDR]
+    vars:
+      AGGREGATOR_URL: "http://127.0.0.1:{{.WAVS_AGGREGATOR_PORT}}"
+    cmds:
+      - >
+        cd packages/cli && cargo run aggregator-register-service
+        --aggregator-url {{.AGGREGATOR_URL}}
+        --service-manager-address "{{.ADDR}}"
+
+  operator-add-service:
+    vars:
+      OPERATORS_RANGE:
+        sh: seq 1 {{.OPERATORS | default "1"}}
+    cmds:
+      - for: { var: OPERATORS_RANGE }
+        task: operator-add-service-{{.ITEM}}-{{.ADDR}}
+
+  operator-add-service-*-*:
+    vars:
+      WAVS_INSTANCE: "{{index .MATCH 0}}"
+      ADDR: "{{index .MATCH 1}}"
+      WAVS_PORT:
+        sh: task backend:get-wavs-operator-port-{{.WAVS_INSTANCE}}
+      WAVS_URL: "http://127.0.0.1:{{.WAVS_PORT}}"
+    cmds:
+      - >
+        cd packages/cli && cargo run operator-add-service
+        --wavs-url {{.WAVS_URL}}
+        --service-manager-address "{{.ADDR}}"
+
+  assert-account-exists:
+    cmds:
+      - cd packages/cli && cargo run assert-account-exists

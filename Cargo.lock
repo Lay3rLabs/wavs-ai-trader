@@ -48,6 +48,7 @@ version = "0.0.1"
 dependencies = [
  "ai-portfolio-utils",
  "anyhow",
+ "chrono",
  "clap",
  "dotenvy",
  "layer-climb",
@@ -82,6 +83,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ai-portfolio-test-common"
+version = "0.0.1"
+dependencies = [
+ "ai-portfolio-utils",
+ "anyhow",
+ "cosmwasm-std",
+ "layer-climb",
+ "serde",
+ "vault",
+ "wavs-types",
+]
+
+[[package]]
 name = "ai-portfolio-utils"
 version = "0.0.1"
 dependencies = [
@@ -89,6 +103,7 @@ dependencies = [
  "cfg-if",
  "cosmwasm-std",
  "cw-multi-test",
+ "cw-ownable",
  "deadpool",
  "layer-climb",
  "reqwest",
@@ -1294,8 +1309,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "145052bdd345b87320e369255277e3fb5152762ad123a901ef5c262dd38fe8d2"
 dependencies = [
  "iana-time-zone",
+ "js-sys",
  "num-traits",
  "serde",
+ "wasm-bindgen",
  "windows-link 0.2.1",
 ]
 
@@ -3388,6 +3405,45 @@ dependencies = [
  "ruint",
  "serde",
  "smallvec",
+]
+
+[[package]]
+name = "off-chain-tests"
+version = "0.0.1"
+dependencies = [
+ "ai-portfolio-test-common",
+ "ai-portfolio-utils",
+ "anyhow",
+ "async-trait",
+ "cosmwasm-std",
+ "cw-multi-test",
+ "layer-climb-address",
+ "serde",
+ "tokio",
+ "vault",
+ "wavs-types",
+]
+
+[[package]]
+name = "on-chain-tests"
+version = "0.0.1"
+dependencies = [
+ "ai-portfolio-test-common",
+ "ai-portfolio-utils",
+ "anyhow",
+ "async-trait",
+ "bip39",
+ "cosmwasm-std",
+ "cw-ownable",
+ "deadpool",
+ "layer-climb",
+ "layer-climb-address",
+ "rand 0.9.2",
+ "serde",
+ "tokio",
+ "tracing",
+ "vault",
+ "wavs-types",
 ]
 
 [[package]]

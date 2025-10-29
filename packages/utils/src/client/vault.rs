@@ -1,10 +1,13 @@
 //! Vault contract abstraction for different backends (Climb, Climb Pool, MultiTest)
 //! Define helper methods here and they'll be available for all backends
 
-use anyhow::Result;
-use cosmwasm_std::{Coin, Decimal256, Uint256};
+use anyhow::{Result, anyhow};
+use cosmwasm_std::{Coin, Decimal256, Uint256, Addr};
 use serde::de::DeserializeOwned;
 use std::fmt::Debug;
+
+#[cfg(feature = "multitest")]
+use cw_multi_test::Executor;
 
 use crate::{
     addr::AnyAddr,
@@ -141,6 +144,14 @@ impl VaultQuerier {
             .await?;
         Ok(resp)
     }
+
+    /// Query ownership information
+    pub async fn ownership(&self) -> Result<cw_ownable::Ownership<cosmwasm_std::Addr>> {
+        let resp: cw_ownable::Ownership<cosmwasm_std::Addr> = self
+            .query(&QueryMsg::Vault(VaultQueryMsg::Ownership {}))
+            .await?;
+        Ok(resp)
+    }
 }
 
 #[derive(Clone)]
@@ -159,18 +170,59 @@ impl VaultExecutor {
     }
 
     /// Execute a deposit to the vault
-    pub async fn deposit(&self, funds: &[Coin]) -> Result<AnyTxResponse> {
-        self.exec(&ExecuteMsg::Vault(VaultExecuteMsg::Deposit {}), funds)
-            .await
+    pub async fn deposit(&self, signer: &AnyAddr, funds: &[Coin]) -> Result<AnyTxResponse> {
+        #[cfg(feature = "multitest")]
+        {
+            match &self.inner {
+                AnyExecutor::MultiTest { app, .. } => {
+                    app.borrow_mut()
+                        .execute_contract(
+                            signer.clone().into(),
+                            self.addr.clone().into(),
+                            &ExecuteMsg::Vault(VaultExecuteMsg::Deposit {}),
+                            funds,
+                        )
+                        .map(AnyTxResponse::MultiTest)
+                        .map_err(|e| anyhow!("StdError: {}", e))
+                },
+                _ => self.exec(&ExecuteMsg::Vault(VaultExecuteMsg::Deposit {}), funds).await
+            }
+        }
+        #[cfg(not(feature = "multitest"))]
+        {
+            self.exec(&ExecuteMsg::Vault(VaultExecuteMsg::Deposit {}), funds).await
+        }
     }
 
     /// Execute a withdrawal from the vault
-    pub async fn withdraw(&self, shares: Uint256) -> Result<AnyTxResponse> {
-        self.exec(
-            &ExecuteMsg::Vault(VaultExecuteMsg::Withdraw { shares }),
-            &[],
-        )
-        .await
+    pub async fn withdraw(&self, signer: &AnyAddr, shares: Uint256) -> Result<AnyTxResponse> {
+        #[cfg(feature = "multitest")]
+        {
+            match &self.inner {
+                AnyExecutor::MultiTest { app, .. } => {
+                    app.borrow_mut()
+                        .execute_contract(
+                            signer.clone().into(),
+                            self.addr.clone().into(),
+                            &ExecuteMsg::Vault(VaultExecuteMsg::Withdraw { shares }),
+                            &[],
+                        )
+                        .map(AnyTxResponse::MultiTest)
+                        .map_err(|e| anyhow!("StdError: {}", e))
+                },
+                _ => self.exec(
+                    &ExecuteMsg::Vault(VaultExecuteMsg::Withdraw { shares }),
+                    &[],
+                ).await
+            }
+        }
+        #[cfg(not(feature = "multitest"))]
+        {
+            self.exec(
+                &ExecuteMsg::Vault(VaultExecuteMsg::Withdraw { shares }),
+                &[],
+            ).await
+        }
     }
 
     /// Update whitelist (owner only)
@@ -184,5 +236,81 @@ impl VaultExecutor {
             &[],
         )
         .await
+    }
+
+    /// Update prices (owner only)
+    pub async fn update_prices(
+        &self,
+        prices: Vec<PriceInfo>,
+        swap_routes: Option<Vec<vault::SwapRoute>>,
+    ) -> Result<AnyTxResponse> {
+        self.exec(
+            &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
+                prices,
+                swap_routes,
+            }),
+            &[],
+        )
+        .await
+    }
+
+    /// Direct contract execution with specified signer
+    #[cfg(feature = "multitest")]
+    pub async fn update_prices_direct(
+        &self,
+        signer: &Addr,
+        prices: Vec<PriceInfo>,
+        swap_routes: Option<Vec<vault::SwapRoute>>,
+    ) -> Result<AnyTxResponse> {
+        match &self.inner {
+            AnyExecutor::MultiTest { app, .. } => {
+                app.borrow_mut()
+                    .execute_contract(
+                        signer.clone(),
+                        self.addr.clone().into(),
+                        &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
+                            prices,
+                            swap_routes,
+                        }),
+                        &[],
+                    )
+                    .map(AnyTxResponse::MultiTest)
+                    .map_err(|e| anyhow!("StdError: {}", e))
+            },
+            _ => self.exec(
+                &ExecuteMsg::Vault(VaultExecuteMsg::UpdatePrices {
+                    prices,
+                    swap_routes,
+                }),
+                &[],
+            ).await
+        }
+    }
+
+    /// Direct contract execution with specified signer
+    #[cfg(feature = "multitest")]
+    pub async fn update_whitelist_direct(
+        &self,
+        signer: &Addr,
+        to_add: Option<Vec<String>>,
+        to_remove: Option<Vec<String>>,
+    ) -> Result<AnyTxResponse> {
+        match &self.inner {
+            AnyExecutor::MultiTest { app, .. } => {
+                app.borrow_mut()
+                    .execute_contract(
+                        signer.clone(),
+                        self.addr.clone().into(),
+                        &ExecuteMsg::Vault(VaultExecuteMsg::UpdateWhitelist { to_add, to_remove }),
+                        &[],
+                    )
+                    .map(AnyTxResponse::MultiTest)
+                    .map_err(|e| anyhow!("StdError: {}", e))
+            },
+            _ => self.exec(
+                &ExecuteMsg::Vault(VaultExecuteMsg::UpdateWhitelist { to_add, to_remove }),
+                &[],
+            ).await
+        }
     }
 }

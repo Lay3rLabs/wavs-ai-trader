@@ -26,6 +26,10 @@ impl CliContext {
             CliCommand::FaucetTap { args, .. } => args,
             CliCommand::UploadComponent { args, .. } => args,
             CliCommand::InstantiateVault { args, .. } => args,
+            CliCommand::UploadService { args, .. } => args,
+            CliCommand::AssertAccountExists { args, .. } => args,
+            CliCommand::AggregatorRegisterService { args, .. } => args,
+            CliCommand::OperatorAddService { args, .. } => args,
         }
     }
 

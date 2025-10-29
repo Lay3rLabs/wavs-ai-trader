@@ -1,12 +1,14 @@
-use crate::output::{Output, OutputFormat};
+use crate::output::OutputFormat;
 use ai_portfolio_utils::path::repo_root;
 use clap::{Parser, ValueEnum};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use wavs_types::ChainKey;
 
 #[derive(Clone, Parser)]
 #[command(version, about, long_about = None)]
+#[allow(clippy::large_enum_variant)]
 pub enum CliCommand {
     /// Upload a contract to the chain
     UploadContract {
@@ -16,31 +18,7 @@ pub enum CliCommand {
         #[clap(flatten)]
         args: CliArgs,
     },
-    /// Upload a component to IPFS
-    UploadComponent {
-        #[arg(long)]
-        kind: ComponentKind,
-
-        #[arg(long)]
-        ipfs_api_url: Url,
-
-        #[arg(long)]
-        ipfs_gateway_url: Url,
-
-        #[clap(flatten)]
-        args: CliArgs,
-    },
-    FaucetTap {
-        /// if not supplied, will be the one in CLI_MNEMONIC
-        addr: Option<String>,
-        /// if not supplied, will be the default
-        amount: Option<u128>,
-        /// if not supplied, will be the default
-        denom: Option<String>,
-        #[clap(flatten)]
-        args: CliArgs,
-    },
-    /// Instantiate a vault contract
+    /// Instantiate the Vault contract
     InstantiateVault {
         /// The code ID of the vault contract
         #[arg(long)]
@@ -61,12 +39,90 @@ pub enum CliCommand {
         #[clap(flatten)]
         args: CliArgs,
     },
+    /// Upload a component to IPFS
+    UploadComponent {
+        #[arg(long)]
+        kind: ComponentKind,
+
+        #[arg(long)]
+        ipfs_api_url: Url,
+
+        #[arg(long)]
+        ipfs_gateway_url: Url,
+
+        #[clap(flatten)]
+        args: CliArgs,
+    },
+    /// Upload a service to IPFS
+    UploadService {
+        #[arg(long)]
+        contract_payments_instantiation_file: PathBuf,
+
+        #[arg(long)]
+        middleware_instantiation_file: PathBuf,
+
+        #[arg(long)]
+        component_operator_cid_file: PathBuf,
+
+        #[arg(long)]
+        component_aggregator_cid_file: PathBuf,
+
+        #[arg(long)]
+        cron_schedule: String,
+
+        #[arg(long)]
+        aggregator_url: Url,
+
+        #[arg(long)]
+        ipfs_api_url: Url,
+
+        #[arg(long)]
+        ipfs_gateway_url: Url,
+
+        #[clap(flatten)]
+        args: CliArgs,
+    },
+    FaucetTap {
+        /// if not supplied, will be the one in CLI_MNEMONIC
+        addr: Option<String>,
+        /// if not supplied, will be the default
+        amount: Option<u128>,
+        /// if not supplied, will be the default
+        denom: Option<String>,
+        #[clap(flatten)]
+        args: CliArgs,
+    },
+    AssertAccountExists {
+        addr: Option<String>,
+        #[clap(flatten)]
+        args: CliArgs,
+    },
+    AggregatorRegisterService {
+        #[arg(long)]
+        service_manager_address: String,
+
+        #[arg(long)]
+        aggregator_url: Url,
+
+        #[clap(flatten)]
+        args: CliArgs,
+    },
+    OperatorAddService {
+        #[arg(long)]
+        service_manager_address: String,
+
+        #[arg(long)]
+        wavs_url: Url,
+
+        #[clap(flatten)]
+        args: CliArgs,
+    },
 }
 
 // common args for several commands
 #[derive(Clone, Debug, Parser)]
 pub struct CliArgs {
-    #[clap(long, default_value = "cosmos:neutron-1")]
+    #[clap(long, default_value = "cosmos:neutron-fork-1")]
     pub chain: ChainKey,
 
     /// Filename for outputting any generated files
@@ -80,7 +136,7 @@ pub struct CliArgs {
 }
 
 impl CliArgs {
-    pub fn output(&self) -> Output {
+    pub fn output(&self) -> crate::output::Output {
         let output_path = repo_root()
             .expect("could not determine repo root")
             .join("builds")
@@ -95,7 +151,7 @@ impl CliArgs {
             )
         });
 
-        Output {
+        crate::output::Output {
             path: output_path,
             format: self.output_format,
         }
@@ -126,7 +182,7 @@ impl ContractKind {
             .unwrap()
             .join("builds")
             .join("contracts")
-            .join(format!("tg_contract_{}.wasm", self.as_str()));
+            .join(format!("{}.wasm", self.as_str()));
 
         tokio::fs::read(&path)
             .await
@@ -160,7 +216,7 @@ impl ComponentKind {
             .unwrap()
             .join("builds")
             .join("components")
-            .join(format!("tg_component_{}.wasm", self.as_str()));
+            .join(format!("{}.wasm", self.as_str()));
 
         tokio::fs::read(&path)
             .await

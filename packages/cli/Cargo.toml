@@ -21,3 +21,4 @@ rustls = { workspace = true }
 tracing = { workspace = true }
 layer-climb = { workspace = true }
 reqwest = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }

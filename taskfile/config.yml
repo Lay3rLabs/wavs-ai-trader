@@ -20,7 +20,7 @@ vars:
   ARTIFACTS_PATH: '{{joinPath .REPO_ROOT "builds"}}'
   COMPONENTS_ARTIFACTS_PATH: '{{joinPath .ARTIFACTS_PATH "components"}}'
   CONTRACTS_ARTIFACTS_PATH: '{{joinPath .ARTIFACTS_PATH "contracts"}}'
-  CHAIN_KEY: "cosmos:neutron-1"
+  CHAIN_KEY: "cosmos:neutron-fork-1"
   SERVER_ARTIFACTS_PATH: '{{joinPath .ARTIFACTS_PATH "server"}}'
   DEPLOYMENTS_ARTIFACTS_PATH: '{{joinPath .ARTIFACTS_PATH "deployments"}}'
   SERVER_PID_FILE: '{{joinPath .SERVER_ARTIFACTS_PATH "server.pid"}}'

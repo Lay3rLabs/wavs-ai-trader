@@ -45,7 +45,7 @@ async fn create_client() -> SigningClient {
         .unwrap();
 
     let chain_config = chain_configs
-        .get_chain(&"cosmos:neutron-1".parse().unwrap())
+        .get_chain(&"cosmos:neutron-fork-1".parse().unwrap())
         .unwrap()
         .to_cosmos_config()
         .unwrap();

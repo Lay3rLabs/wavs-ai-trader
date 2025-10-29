@@ -23,7 +23,7 @@ pub const SKIP_SWAP_ENTRY_POINT_NEUTRON: &str =
 /// or None if the chain is not supported.
 pub fn skip_swap_entry_point(chain_id: &str) -> Option<&'static str> {
     match chain_id {
-        "neutron-1" => Some(SKIP_SWAP_ENTRY_POINT_NEUTRON),
+        "neutron-fork-1" => Some(SKIP_SWAP_ENTRY_POINT_NEUTRON),
         _ => None,
     }
 }

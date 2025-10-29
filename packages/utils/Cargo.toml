@@ -31,3 +31,4 @@ reqwest = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 deadpool = { workspace = true, optional = true }
 cw-multi-test = { workspace = true, optional = true }
+cw-ownable = { workspace = true }

@@ -179,8 +179,8 @@ tasks:
     internal: true
     env:
       COMPOSE_WAVS_AGGREGATOR_PORT: "{{.WAVS_AGGREGATOR_PORT}}"
-      WAVS_AGGREGATOR_COSMOS_MNEMONIC:
-        sh: task backend:get-wavs-aggregator-cosmos-submission-mnemonic
+      WAVS_AGGREGATOR_COSMOS_CREDENTIAL:
+        sh: task backend:get-wavs-aggregator-cosmos-credential
     cmds:
       - echo "Starting WAVS Aggregator on port {{.WAVS_AGGREGATOR_PORT}}"
       - |
@@ -194,10 +194,8 @@ tasks:
       COMPOSE_PROJECT_NAME: "wavs-operator-{{.WAVS_INSTANCE}}"
       COMPOSE_WAVS_PORT:
         sh: task backend:get-wavs-operator-port-{{.WAVS_INSTANCE}}
-      WAVS_COSMOS_SUBMISSION_MNEMONIC:
-        sh: task backend:get-wavs-cosmos-submission-mnemonic-{{.WAVS_INSTANCE}}
-      WAVS_SUBMISSION_MNEMONIC:
-        sh: task backend:get-wavs-cosmos-submission-mnemonic-{{.WAVS_INSTANCE}}
+      WAVS_OPERATOR_MNEMONIC:
+        sh: task backend:get-wavs-operator-mnemonic-{{.WAVS_INSTANCE}}
       WAVS_LOG_LEVEL: '{{.RUST_LOG | default "info"}}'
     cmds:
       - |
@@ -238,18 +236,18 @@ tasks:
     cmds:
       - echo "{{.WAVS_PORT}}"
 
-  get-wavs-cosmos-submission-mnemonic-*:
+  get-wavs-operator-mnemonic-*:
     desc: "Get the WAVS submission mnemonic for a wavs instance number"
     vars:
       WAVS_INSTANCE: "{{index .MATCH 0}}"
-      ENV_VAR_NAME: "WAVS_COSMOS_SUBMISSION_MNEMONIC_{{.WAVS_INSTANCE}}"
+      ENV_VAR_NAME: "WAVS_OPERATOR_MNEMONIC_{{.WAVS_INSTANCE}}"
     cmds:
       - echo "${{.ENV_VAR_NAME}}"
 
-  get-wavs-aggregator-cosmos-submission-mnemonic:
-    desc: "Get the WAVS submission mnemonic for the aggregator"
+  get-wavs-aggregator-cosmos-credential:
+    desc: "Get the WAVS submission credential for the aggregator"
     vars:
-      ENV_VAR_NAME: "WAVS_AGGREGATOR_COSMOS_MNEMONIC"
+      ENV_VAR_NAME: "WAVS_AGGREGATOR_COSMOS_CREDENTIAL"
     cmds:
       - echo "${{.ENV_VAR_NAME}}"
 
