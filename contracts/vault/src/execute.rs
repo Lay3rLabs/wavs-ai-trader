@@ -352,6 +352,23 @@ pub fn update_prices(
                     affiliates: vec![],
                 };
 
+                // Add trade event for frontend visibility
+                events.push(
+                    cosmwasm_std::Event::new("trade_initiated")
+                        .add_attribute("offer_denom", &route.offer_denom)
+                        .add_attribute("offer_amount", route.amount_in.to_string())
+                        .add_attribute("ask_denom", &route.ask_denom)
+                        .add_attribute(
+                            "min_amount_out",
+                            route
+                                .minimum_amount_out
+                                .unwrap_or(route.estimated_amount_out)
+                                .to_string(),
+                        )
+                        .add_attribute("swap_venue", &route.swap_venue_name)
+                        .add_attribute("timeout", route.timeout.nanos().to_string()),
+                );
+
                 msgs.push(SubMsg::reply_always(
                     WasmMsg::Execute {
                         contract_addr: entry_point.to_string(),

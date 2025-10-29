@@ -124,23 +124,39 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
 
                 VAULT_ASSETS.update::<_, ContractError>(
                     deps.storage,
-                    trade_info.out_denom,
+                    trade_info.out_denom.clone(),
                     |_| Ok(out_balance.amount),
                 )?;
                 VAULT_ASSETS.update::<_, ContractError>(
                     deps.storage,
-                    trade_info.in_coin.denom,
+                    trade_info.in_coin.denom.clone(),
                     |_| Ok(in_balance.amount),
                 )?;
+
+                // Add trade completion event
+                let mut response = Response::new().add_event(
+                    cosmwasm_std::Event::new("trade_completed")
+                        .add_attribute("out_denom", &trade_info.out_denom)
+                        .add_attribute("out_balance", out_balance.amount.to_string())
+                        .add_attribute("in_denom", &trade_info.in_coin.denom)
+                        .add_attribute("in_balance", trade_info.in_coin.amount.to_string()),
+                );
 
                 // Once all operations are completed, then calculate vault value again
                 if TRADE_TRACKER.is_empty(deps.storage)? {
                     let updated_vault_value = calculate_vault_usd_value(deps.storage)?;
                     VAULT_VALUE_DEPOSITED.save(deps.storage, &updated_vault_value)?;
-                }
-            }
 
-            Ok(Response::new())
+                    response = response.add_event(
+                        cosmwasm_std::Event::new("trade_finalized")
+                            .add_attribute("vault_value_usd", updated_vault_value.to_string()),
+                    );
+                }
+
+                Ok(response)
+            } else {
+                Ok(Response::new())
+            }
         }
         _ => Err(ContractError::UnknownReplyId { id: msg.id }),
     }
