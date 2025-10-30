@@ -2,6 +2,7 @@ use cosmwasm_std::{
     ensure_eq, to_json_binary, BankMsg, Coin, CosmosMsg, Decimal256, DepsMut, Env, MessageInfo,
     Response, SubMsg, Uint256, WasmMsg,
 };
+use cw_ownable::assert_owner;
 use wavs_types::contracts::cosmwasm::service_handler::{WavsEnvelope, WavsSignatureData};
 use wavs_types::contracts::cosmwasm::service_manager::{
     ServiceManagerQueryMessages, WavsValidateResult,
@@ -352,6 +353,23 @@ pub fn update_prices(
                     affiliates: vec![],
                 };
 
+                // Add trade event for frontend visibility
+                events.push(
+                    cosmwasm_std::Event::new("trade_initiated")
+                        .add_attribute("offer_denom", &route.offer_denom)
+                        .add_attribute("offer_amount", route.amount_in.to_string())
+                        .add_attribute("ask_denom", &route.ask_denom)
+                        .add_attribute(
+                            "min_amount_out",
+                            route
+                                .minimum_amount_out
+                                .unwrap_or(route.estimated_amount_out)
+                                .to_string(),
+                        )
+                        .add_attribute("swap_venue", &route.swap_venue_name)
+                        .add_attribute("timeout", route.timeout.nanos().to_string()),
+                );
+
                 msgs.push(SubMsg::reply_always(
                     WasmMsg::Execute {
                         contract_addr: entry_point.to_string(),
@@ -570,4 +588,17 @@ struct ProcessedDepositInfo {
     user: String,
     value_usd: Decimal256,
     shares_issued: Uint256,
+}
+
+pub fn manual_trigger(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+) -> Result<Response, ContractError> {
+    assert_owner(deps.storage, &info.sender)?;
+
+    Ok(Response::new().add_event(
+        cosmwasm_std::Event::new("manual_trigger")
+            .add_attribute("trigger_time", env.block.time.nanos().to_string()),
+    ))
 }

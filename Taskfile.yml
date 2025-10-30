@@ -6,7 +6,7 @@ includes:
   contracts: ./taskfile/contracts.yml
   components: ./taskfile/components.yml
   backend: ./taskfile/backend.yml
-  cli: ./taskfile/cli.yml
+  deploy: ./taskfile/deploy.yml
   test: ./taskfile/test.yml
 
 tasks:
@@ -14,9 +14,19 @@ tasks:
     cmds:
       - task --list-all
 
+  setup:
+    cmds:
+      - git submodule update --init --recursive
+      - defer: task backend:build-neutron
+
   lint:
     desc: "Run code formatting and linting checks"
     cmds:
       - cargo fmt --all -- --check
       - cargo fix --allow-dirty --allow-staged
       - cargo clippy --all-targets -- -D warnings
+
+  clean:
+    desc: "Clean all artifacts"
+    cmds:
+      - rm -rf "{{.ARTIFCACTS_PATH}}"

@@ -5,7 +5,7 @@ services:
     image: "${COMPOSE_WAVS_DOCKER_IMAGE:-}"
     stop_signal: SIGKILL
     environment:
-      - WAVS_AGGREGATOR_COSMOS_MNEMONIC=${WAVS_AGGREGATOR_COSMOS_MNEMONIC:-}
+      - WAVS_AGGREGATOR_COSMOS_CREDENTIAL=${WAVS_AGGREGATOR_COSMOS_CREDENTIAL:-}
     command:
       [
         "wavs-aggregator",

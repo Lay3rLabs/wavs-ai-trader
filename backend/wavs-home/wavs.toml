@@ -13,19 +13,18 @@ prometheus = "http://localhost:9090"
 # This must match the starship config in `backend/starship/chains.yml`
 [default.chains.cosmos.neutron-1]
 bech32_prefix = "neutron"
-rpc_endpoint = "http://localhost:27657"
+rpc_endpoint = "https://rpc-vertexa.neutron-1.neutron.org"
+grpc_endpoint = "http://grpc-lb.neutron.org:80"
+gas_price = 0.025
+gas_denom = "untrn"
+
+[default.chains.cosmos.pion-1]
+bech32_prefix = "neutron"
+rpc_endpoint = "http://localhost:26657"
 grpc_endpoint = "http://localhost:9090"
 gas_price = 0.025
 gas_denom = "untrn"
 
-[default.chains.dev.docker-neutron-1]
-type = "cosmos"
-chain_id = "neutron-1"
-bech32_prefix = "neutron"
-rpc_endpoint = "http://host.docker.internal:27657"
-grpc_endpoint = "http://host.docker.internal:9090"
-gas_price = 0.025
-gas_denom = "untrn"
 
 # ----------------------------
 # WAVS specific settings

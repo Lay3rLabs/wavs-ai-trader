@@ -6,6 +6,136 @@ includes:
     flatten: true
 
 tasks:
-  hello:
+  clean-all:
     cmds:
-      - echo "Hello, World!"
+      - for: { var: ALL_COMPONENTS }
+        task: clean
+        vars:
+          COMPONENT: "{{ .ITEM }}"
+      - echo "Cleaning artifacts directory"
+      - |
+        rm -rf "{{.COMPONENTS_ARTIFACTS_PATH}}"
+
+  clean:
+    requires:
+      vars: [COMPONENT]
+    vars:
+      CONTRACT_SRC_NAME:
+        sh: task components:src-name COMPONENT={{.COMPONENT}}
+    cmds:
+      - echo "Cleaning {{.COMPONENT}} contracts"
+      - rm -rf "{{.COMPONENTS_ARTIFACTS_PATH}}/{{.COMPONENT}}_*"
+
+  build-all:
+    cmds:
+      - for: { var: ALL_COMPONENTS }
+        task: build
+        vars:
+          COMPONENT: "{{.ITEM}}"
+
+  build:
+    requires:
+      vars: [COMPONENT]
+    vars:
+      COMPONENT_SRC_NAME:
+        sh: task components:src-name COMPONENT={{.COMPONENT}}
+      COMPONENT_PATH: "components/{{.COMPONENT}}"
+      COMPONENT_FILE: "{{.COMPONENT_SRC_NAME}}.wasm"
+      COMPONENT_PACKAGE: "ai-portfolio-{{.COMPONENT}}"
+    cmds:
+      - echo "Building component {{.COMPONENT}} at {{.COMPONENT_PATH}}"
+      - cargo build --release --package {{.COMPONENT_PACKAGE}} --target wasm32-wasip2
+      - mkdir -p "{{.COMPONENTS_ARTIFACTS_PATH}}"
+      - cp "./target/wasm32-wasip2/release/{{.COMPONENT_FILE}}" "{{.COMPONENTS_ARTIFACTS_PATH}}/"
+
+  src-name:
+    requires:
+      vars: [COMPONENT]
+    cmds:
+      - echo "ai_portfolio_{{ replace "-" "_" .COMPONENT }}"
+
+  ###################################################################
+  ######################## WIT #####################################
+  ###################################################################
+
+  clean-wit-all:
+    cmds:
+      - for: { var: ALL_COMPONENTS }
+        task: clean-wit
+        vars:
+          COMPONENT: "{{.ITEM}}"
+
+  clean-wit:
+    requires:
+      vars: [COMPONENT]
+    cmds:
+      - echo "Cleaning WIT for component {{.COMPONENT}}"
+      - rm -rf "./components/{{.COMPONENT}}/wit"
+
+  fetch-wit-all:
+    cmds:
+      - for: { var: ALL_COMPONENTS }
+        task: fetch-wit-{{.ITEM}}
+        vars:
+          COMPOMENT: "{{.ITEM}}"
+
+  fetch-wit:
+    requires:
+      vars: [COMPONENT]
+    cmds:
+      - task: fetch-wit-{{.COMPONENT}}
+
+  fetch-wit-operator:
+    internal: true
+    cmds:
+      - for: { var: COMPONENT_WITS_OPERATOR }
+        task: fetch-single-wit
+        vars:
+          WIT_ITEM: "{{.ITEM}}"
+          COMPONENT: "operator"
+
+  fetch-wit-aggregator:
+    internal: true
+    cmds:
+      - for: { var: COMPONENT_WITS_AGGREGATOR }
+        task: fetch-single-wit
+        vars:
+          WIT_ITEM: "{{.ITEM}}"
+          COMPONENT: "aggregator"
+
+  fetch-single-wit:
+    internal: true
+    requires:
+      vars: [WIT_ITEM, COMPONENT]
+    deps:
+      - task: clean-wit
+        vars:
+          COMPONENT: "{{.COMPONENT}}"
+    cmds:
+      - echo "Fetching WIT for component {{.COMPONENT}} - {{.WIT_ITEM}}"
+      - mkdir -p "./components/{{.COMPONENT}}/wit"
+      - wkg get "{{.WIT_ITEM}}" --output "./components/{{.COMPONENT}}/wit/"
+      - wkg wit fetch -d "./components/{{.COMPONENT}}/wit"
+      - echo "Completed fetch for {{.WIT_ITEM}}"
+
+  ###################################################################
+  ######################## EXEC #####################################
+  ###################################################################
+
+  exec-operator-read-*:
+    vars:
+      READ_KIND: "{{index .MATCH 0}}"
+    cmds:
+      - >
+        docker run --rm
+        --network host
+        -v "{{.WAVS_HOME_DIR}}":/wavs-home:ro
+        -v "{{.COMPONENTS_ARTIFACTS_PATH}}":/components:ro
+        -e WAVS_HOME="/wavs-home"
+        -e CLI_MNEMONIC="{{.CLI_MNEMONIC}}"
+        -e WAVS_ENV_OPERATOR_TELEGRAM_BOT_TOKEN="{{.WAVS_OPERATOR_TELEGRAM_BOT_TOKEN}}"
+        {{.WAVS_DOCKER_IMAGE}}
+        wavs-cli exec
+        --log-level '{{.RUST_LOG | default "info"}}'
+        --component /components/operator.wasm
+        --input "read-{{.READ_KIND}}"

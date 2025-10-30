@@ -1,5 +1,14 @@
 [workspace]
-members = ["components/*", "contracts/*"]
+members = [
+    "components/*",
+    "contracts/*",
+    "packages/cli",
+    "packages/utils",
+    "packages/tests/off-chain",
+    "packages/tests/on-chain",
+    "packages/tests/_common",
+    "packages/types",
+]
 resolver = "2"
 
 [workspace.package]
@@ -8,7 +17,7 @@ version = "0.0.1"
 license = "GPL-3.0-or-later"
 authors = ["Layer Labs (Cayman)"]
 repository = "https://github.com/Lay3rLabs/wavs-ai-trader.git"
-rust-version = "1.90.0"
+rust-version = "1.86.0"
 
 [profile.release]
 opt-level = 3
@@ -24,6 +33,8 @@ overflow-checks = true
 [workspace.dependencies]
 # Local
 vault = { path = "contracts/vault", features = ["library"] }
+ai-portfolio-utils = { path = "packages/utils" }
+ai-portfolio-types = { path = "packages/types" }
 
 # WAVS
 wavs-types = { version = "=2.0.0-alpha.7", default-features = false, features = [
@@ -32,7 +43,7 @@ wavs-types = { version = "=2.0.0-alpha.7", default-features = false, features = 
 wavs-types-full = { package = "wavs-types", version = "=2.0.0-alpha.7", features = [
     "full",
 ] }
-wavs-wasi-utils = "0.5.1"
+wavs-wasi-utils = "2.0.0"
 
 # Error handling
 anyhow = "1.0.98"
@@ -47,6 +58,7 @@ futures = "0.3.31"
 reqwest = { version = "0.12", default-features = false, features = [
     "json",
     "rustls-tls-webpki-roots",
+    "multipart",
 ] }
 
 # pool management
@@ -65,19 +77,19 @@ k256 = { version = "0.13.4", default-features = false, features = ["ecdsa"] }
 # Serialization
 serde = { version = "1.0.219", features = ["derive"] }
 bincode = { version = "2.0.1", features = ["serde"] }
-toml = "0.9.5"
+toml = "0.9.8"
 serde_json = "1.0.142"
 
 # Layer-climb
-layer-climb = "0.8.3"
-layer-climb-core = "0.8.3"
-layer-climb-address = { version = "0.8.3", features = [
+layer-climb = "0.8.7"
+layer-climb-core = "0.8.7"
+layer-climb-address = { version = "0.8.7", features = [
     "cw-storage",
     "openapi",
 ] }
-layer-climb-config = "0.8.3"
-layer-climb-cli = "0.8.3"
-layer-climb-proto = "0.8.3"
+layer-climb-config = "0.8.7"
+layer-climb-cli = "0.8.7"
+layer-climb-proto = "0.8.7"
 
 # CosmWasm
 cosmwasm-schema = "3.0.2"
@@ -98,7 +110,8 @@ serde-json-wasm = "1.0.1"
 
 # WASI
 wstd = "0.5.3"
-wit-bindgen-rt = "0.43.0"
+wit-bindgen-rt = "0.44.0"
+wit-bindgen = "0.47.0"
 
 # CLI
 clap = { version = "4.5.44", features = ["derive", "env", "string"] }
@@ -124,3 +137,6 @@ http-body-util = "0.1.3"
 tower-http = { version = "0.6.6", features = ["cors", "trace"] }
 tower = { version = "0.5.2", features = ["util"] }
 url = "2.5.7"
+
+# Misc
+cfg-if = "1.0.4"

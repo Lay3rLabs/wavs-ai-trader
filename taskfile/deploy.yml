@@ -1,0 +1,419 @@
+version: "3"
+
+includes:
+  config:
+    taskfile: ./config.yml
+    flatten: true
+
+# NOTE: Since contracts are already deployed, you can get started on a fresh instance by just running:
+# 1. task deploy:set-service
+# 2. task deploy:register-service
+# 3. Test execution with task deploy:contract-manual-trigger
+
+vars:
+  INITIAL_WHITELISTED_DENOMS:
+    [
+      "untrn",
+      "ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81",
+      "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9",
+      "ibc/2CB87BCE0937B1D1DFCEE79BE4501AAF3C265E923509AEAC410AD85D27F35130",
+      "ibc/4D04085167777659C11784A356D6B0D13D5C7F0CE77F7DB1152FE03A2DE2CBF2",
+    ]
+
+tasks:
+  clean:
+    cmds:
+      - rm -rf "{{.DEPLOYMENTS_ARTIFACTS_PATH}}"
+
+  ###################################################################
+  ######################## ALL  #####################################
+  ###################################################################
+
+  all:
+    deps:
+      [
+        all-upload-contracts,
+        all-log-skip-upload-contracts,
+        all-log-skip-upload-components,
+      ]
+    cmds:
+      - task: middleware-instantiate
+        vars:
+          MANAGER_CODE_ID:
+            sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/service-manager-code-id.json" | jq -r '.code_id'
+          REGISTRY_CODE_ID:
+            sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/stake-registry-code-id.json" | jq -r '.code_id'
+          FILENAME: middleware.json
+      - task: contract-instantiate-vault
+        vars:
+          CODE_ID:
+            sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/vault-code-id.json" | jq -r '.code_id'
+          FILENAME: vault.json
+      # SET OPERATOR DETAILS ON STAKE REGISTRY AND SIGNING KEY ON SERVICE MANAGER
+      - task: set-service
+      - task: register-service
+      - echo ""
+      - echo "✅ Deployment completed! Artifacts are in {{.DEPLOYMENTS_ARTIFACTS_PATH}}"
+
+  set-service:
+    deps: [all-upload-components]
+    cmds:
+      - task: service-upload
+        vars:
+          CONTRACT_VAULT: "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/vault.json"
+          MIDDLEWARE: "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/middleware.json"
+          COMPONENT_OPERATOR: "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/operator-cid.json"
+          COMPONENT_AGGREGATOR: "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/aggregator-cid.json"
+          FILENAME: service-cid.json
+      - task: middleware-set-service-uri
+        vars:
+          ADDR:
+            sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/service-cid.json" | jq -r '.service.manager.cosmos.address'
+          URI:
+            sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/service-cid.json" | jq -r '.gateway_url'
+
+  register-service:
+    deps:
+      - task: aggregator-register-service
+        vars:
+          ADDR:
+            sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/service-cid.json" | jq -r '.service.manager.cosmos.address'
+      - task: operator-add-service
+        vars:
+          ADDR:
+            sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/service-cid.json" | jq -r '.service.manager.cosmos.address'
+
+  all-upload-contracts:
+    vars:
+      SKIP_UPLOAD_CONTRACTS: '{{ .SKIP_UPLOAD_CONTRACTS | default "false" }}'
+    status:
+      - '[ "{{.SKIP_UPLOAD_CONTRACTS}}" = "true" ]'
+    cmds:
+      - task: middleware-service-manager-upload
+        vars:
+          FILENAME: service-manager-code-id.json
+      - task: middleware-stake-registry-upload
+        vars:
+          FILENAME: stake-registry-code-id.json
+      - task: contract-upload
+        vars:
+          CONTRACT: vault
+          FILENAME: vault-code-id.json
+
+  all-upload-components:
+    vars:
+      SKIP_UPLOAD_COMPONENTS: '{{ .SKIP_UPLOAD_COMPONENTS | default "false" }}'
+    status:
+      - '[ "{{.SKIP_UPLOAD_COMPONENTS}}" = "true" ]'
+    cmds:
+      - task: upload-component
+        vars:
+          COMPONENT: operator
+          FILENAME: operator-cid.json
+      - task: upload-component
+        vars:
+          COMPONENT: aggregator
+          FILENAME: aggregator-cid.json
+
+  all-log-skip-upload-contracts:
+    vars:
+      SKIP_UPLOAD_CONTRACTS: '{{ .SKIP_UPLOAD_CONTRACTS | default "false" }}'
+    status:
+      - '[ "{{.SKIP_UPLOAD_CONTRACTS}}" != "true" ]'
+    cmds:
+      - echo ""
+      - echo "ℹ️  Skipping contract uploads."
+      - echo ""
+
+  all-log-skip-upload-components:
+    vars:
+      SKIP_UPLOAD_COMPONENTS: '{{ .SKIP_UPLOAD_COMPONENTS | default "false" }}'
+    status:
+      - '[ "{{.SKIP_UPLOAD_COMPONENTS}}" != "true" ]'
+    cmds:
+      - echo ""
+      - echo "ℹ️  Skipping component uploads."
+      - echo ""
+
+  ###################################################################
+  ######################## CONTRACT #################################
+  ###################################################################
+
+  contract-upload:
+    deps: [assert-account-exists]
+    requires:
+      vars: [CONTRACT, FILENAME]
+    cmds:
+      - echo "🚀 Uploading contract {{.CONTRACT}}..."
+      - cd packages/cli && cargo run upload-contract --kind {{.CONTRACT}} --output-filename={{.FILENAME}}
+
+  contract-instantiate-vault:
+    deps: [assert-account-exists]
+    requires:
+      vars: [FILENAME, CODE_ID]
+    vars:
+      DENOM_STRING: '{{.INITIAL_WHITELISTED_DENOMS | join ","}}'
+    cmds:
+      - echo "🚀 Instantiating Vault contract..."
+      - cd packages/cli && cargo run instantiate-vault --output-filename={{.FILENAME}} --code-id={{.CODE_ID}} --initial-whitelisted-denoms {{.DENOM_STRING}}
+
+  contract-migrate-vault:
+    deps: [assert-account-exists]
+    requires:
+      vars: [NEW_CODE_ID]
+    vars:
+      CONTRACT_ADDRESS:
+        sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/vault.json" | jq -r '.address'
+    cmds:
+      - echo "🚀 Migrating Vault contract at {{.CONTRACT_ADDRESS}} to code ID {{.NEW_CODE_ID}}..."
+      - cd packages/cli && cargo run migrate-vault --contract-address={{.CONTRACT_ADDRESS}} --new-code-id={{.NEW_CODE_ID}}
+
+  contract-manual-trigger:
+    deps: [assert-account-exists]
+    vars:
+      CONTRACT_ADDRESS:
+        sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/vault.json" | jq -r '.address'
+    cmds:
+      - echo "🚀 Calling manual trigger on {{.CONTRACT_ADDRESS}}..."
+      - cd packages/cli && cargo run manual-trigger --contract-address={{.CONTRACT_ADDRESS}}
+
+  set-signing-key-*:
+    deps: [assert-account-exists]
+    requires:
+      vars: [WEIGHT]
+    vars:
+      OPERATOR:
+        sh: cd "{{.REPO_ROOT}}" && task backend:get-wavs-operator-address-{{index .MATCH 0}}
+      SIGNING_KEY:
+        sh: cd "{{.REPO_ROOT}}" && task backend:get-wavs-operator-signing-key-{{index .MATCH 0}}
+      SERVICE_MANAGER_ADDRESS:
+        sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/middleware.json" | jq -r '.service_manager_address'
+    cmds:
+      - echo "🚀 Setting signing key on service manager {{.SERVICE_MANAGER_ADDRESS}}..."
+      - |
+        cd packages/cli && cargo run set-signing-key \
+          --service-manager-address={{.SERVICE_MANAGER_ADDRESS}} \
+          --operator={{.OPERATOR}} \
+          --signing-key={{.SIGNING_KEY}} \
+          --weight={{.WEIGHT}}
+
+  set-operator-details-*:
+    deps: [assert-account-exists]
+    requires:
+      vars: [WEIGHT]
+    vars:
+      OPERATOR:
+        sh: cd "{{.REPO_ROOT}}" && task backend:get-wavs-operator-address-{{index .MATCH 0}}
+      SIGNING_KEY:
+        sh: cd "{{.REPO_ROOT}}" && task backend:get-wavs-operator-signing-key-{{index .MATCH 0}}
+      STAKE_REGISTRY_ADDRESS:
+        sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/middleware.json" | jq -r '.registry_address'
+    cmds:
+      - echo "🚀 Setting operator details on stake registry {{.STAKE_REGISTRY_ADDRESS}}..."
+      - |
+        cd packages/cli && cargo run set-operator-details \
+          --stake-registry-address={{.STAKE_REGISTRY_ADDRESS}} \
+          --operator={{.OPERATOR}} \
+          --signing-key={{.SIGNING_KEY}} \
+          --weight={{.WEIGHT}}
+
+  ###################################################################
+  ######################## FAUCET   #################################
+  ###################################################################
+
+  tap-faucet:
+    cmds:
+      - task: inner-tap-faucet
+        vars:
+          MNEMONIC: "CLI_MNEMONIC"
+
+  tap-faucet-all:
+    cmds:
+      - for: { var: ALL_MNEMONICS_TO_FUND }
+        task: inner-tap-faucet
+        vars:
+          MNEMONIC: "{{.ITEM}}"
+
+  inner-tap-faucet:
+    internal: true
+    vars:
+      MNEMONIC_VALUE:
+        sh: echo "${{.MNEMONIC}}"
+    env:
+      CLI_MNEMONIC: "{{.MNEMONIC_VALUE}}"
+    cmds:
+      - cd packages/cli && cargo run faucet-tap
+
+  assert-account-exists:
+    cmds:
+      - cd packages/cli && cargo run assert-account-exists
+
+  ###################################################################
+  ######################## COMPONENTS ###############################
+  ###################################################################
+
+  upload-component:
+    requires:
+      vars: [COMPONENT, FILENAME]
+    vars:
+      IPFS_API_URL: "http://127.0.0.1:{{.IPFS_API_PORT}}"
+      IPFS_GATEWAY_URL: "http://127.0.0.1:{{.IPFS_GATEWAY_PORT}}"
+    cmds:
+      - echo "🚀 Uploading component {{.COMPONENT}} to IPFS..."
+      - cd packages/cli && cargo run upload-component --kind {{.COMPONENT}} --output-filename={{.FILENAME}} --ipfs-api-url {{.IPFS_API_URL}} --ipfs-gateway-url {{.IPFS_GATEWAY_URL}}
+
+  ###################################################################
+  ######################## MIDDLEWARE ###############################
+  ###################################################################
+
+  middleware-service-manager-upload:
+    deps: [assert-account-exists]
+    requires:
+      vars: [FILENAME]
+    cmds:
+      - echo "🚀 Uploading middleware service-manager contract..."
+      - mkdir -p "{{.ARTIFACTS_PATH}}"
+      - >
+        docker run --rm
+        --network host
+        -v "{{.WAVS_HOME_DIR}}":/wavs-home:ro
+        -v "{{.DEPLOYMENTS_ARTIFACTS_PATH}}":/output
+        -e CHAIN_KEY="{{.CHAIN_KEY}}"
+        -e WAVS_HOME="/wavs-home"
+        -e CLI_MNEMONIC="{{.CLI_MNEMONIC}}"
+        {{.WAVS_CW_MIDDLEWARE_DOCKER_IMAGE}}
+        service-manager upload --contract-kind mirror
+        --output-path "/output/{{.FILENAME}}"
+
+  middleware-stake-registry-upload:
+    deps: [assert-account-exists]
+    requires:
+      vars: [FILENAME]
+    cmds:
+      - echo "🚀 Uploading middleware stake-registry contract..."
+      - mkdir -p "{{.ARTIFACTS_PATH}}"
+      - >
+        docker run --rm
+        --network host
+        -v "{{.WAVS_HOME_DIR}}":/wavs-home:ro
+        -v "{{.DEPLOYMENTS_ARTIFACTS_PATH}}":/output
+        -e CHAIN_KEY="{{.CHAIN_KEY}}"
+        -e WAVS_HOME="/wavs-home"
+        -e CLI_MNEMONIC="{{.CLI_MNEMONIC}}"
+        {{.WAVS_CW_MIDDLEWARE_DOCKER_IMAGE}}
+        registry upload --contract-kind mirror_stake
+        --output-path "/output/{{.FILENAME}}"
+
+  middleware-instantiate:
+    deps: [assert-account-exists]
+    requires:
+      vars: [MANAGER_CODE_ID, REGISTRY_CODE_ID, FILENAME]
+    vars:
+      THRESHOLD: 1000
+      STRATEGIES: "test_strategy_1=100 test_strategy_2=200"
+    cmds:
+      - echo "🚀 Instantiating middleware contracts..."
+      - mkdir -p "{{.ARTIFACTS_PATH}}"
+      - >
+        docker run --rm
+        --network host
+        -v "{{.WAVS_HOME_DIR}}":/wavs-home:ro
+        -v "{{.DEPLOYMENTS_ARTIFACTS_PATH}}":/output
+        -e CHAIN_KEY="{{.CHAIN_KEY}}"
+        -e WAVS_HOME="/wavs-home"
+        -e CLI_MNEMONIC="{{.CLI_MNEMONIC}}"
+        {{.WAVS_CW_MIDDLEWARE_DOCKER_IMAGE}}
+        registry instantiate-mirror-stake
+        --code-id {{.REGISTRY_CODE_ID}}
+        --service-manager-code-id {{.MANAGER_CODE_ID}}
+        --threshold-weight {{.THRESHOLD}}
+        --strategy {{.STRATEGIES}}
+        --output-path "/output/{{.FILENAME}}"
+
+  ###################################################################
+  ######################## SERVICE ##################################
+  ###################################################################
+
+  service-upload:
+    requires:
+      vars:
+        [
+          CONTRACT_VAULT,
+          MIDDLEWARE,
+          COMPONENT_OPERATOR,
+          COMPONENT_AGGREGATOR,
+          FILENAME,
+        ]
+    vars:
+      IPFS_API_URL: "http://127.0.0.1:{{.IPFS_API_PORT}}"
+      IPFS_GATEWAY_URL: "http://127.0.0.1:{{.IPFS_GATEWAY_PORT}}"
+      AGGREGATOR_URL: "http://127.0.0.1:{{.WAVS_AGGREGATOR_PORT}}"
+      SERVICE_CRON_SCHEDULE: "0 0/30 * * * ? *"
+      SERVICE_TRADE_STRATEGY: '{\"Fixed\":{\"{{index .INITIAL_WHITELISTED_DENOMS 0}}\":\"0.5\",\"{{index .INITIAL_WHITELISTED_DENOMS 1}}\":\"0.5\"}}'
+    cmds:
+      - echo "🚀 Uploading Service JSON to IPFS ..."
+      - >
+        cd packages/cli && cargo run upload-service
+        --output-filename {{.FILENAME}}
+        --ipfs-api-url {{.IPFS_API_URL}}
+        --ipfs-gateway-url {{.IPFS_GATEWAY_URL}}
+        --contract-vault-instantiation-file "{{.CONTRACT_VAULT}}"
+        --middleware-instantiation-file "{{.MIDDLEWARE}}"
+        --component-operator-cid-file "{{.COMPONENT_OPERATOR}}"
+        --component-aggregator-cid-file "{{.COMPONENT_AGGREGATOR}}"
+        --cron-schedule "{{.SERVICE_CRON_SCHEDULE}}"
+        --trade-strategy "{{.SERVICE_TRADE_STRATEGY}}"
+        --aggregator-url {{.AGGREGATOR_URL}}
+
+  middleware-set-service-uri:
+    deps: [assert-account-exists]
+    requires:
+      vars: [ADDR, URI]
+    cmds:
+      - echo "🚀 Setting Service URI on service-manager contract..."
+      - >
+        docker run --rm
+        --network host
+        -v "{{.WAVS_HOME_DIR}}":/wavs-home:ro
+        -v "{{.DEPLOYMENTS_ARTIFACTS_PATH}}":/output
+        -e CHAIN_KEY="{{.CHAIN_KEY}}"
+        -e WAVS_HOME="/wavs-home"
+        -e CLI_MNEMONIC="{{.CLI_MNEMONIC}}"
+        {{.WAVS_CW_MIDDLEWARE_DOCKER_IMAGE}}
+        service-manager set-service-uri
+        --address "{{.ADDR}}"
+        --uri "{{.URI}}"
+
+  aggregator-register-service:
+    requires:
+      vars: [ADDR]
+    vars:
+      AGGREGATOR_URL: "http://127.0.0.1:{{.WAVS_AGGREGATOR_PORT}}"
+    cmds:
+      - echo "🚀 Registering service on aggregator..."
+      - >
+        cd packages/cli && cargo run aggregator-register-service
+        --aggregator-url {{.AGGREGATOR_URL}}
+        --service-manager-address "{{.ADDR}}"
+
+  operator-add-service:
+    vars:
+      OPERATORS_RANGE:
+        sh: seq 1 {{.OPERATORS | default "1"}}
+    cmds:
+      - for: { var: OPERATORS_RANGE }
+        task: operator-add-service-{{.ITEM}}-{{.ADDR}}
+
+  operator-add-service-*-*:
+    vars:
+      WAVS_INSTANCE: "{{index .MATCH 0}}"
+      ADDR: "{{index .MATCH 1}}"
+      WAVS_PORT:
+        sh: task backend:get-wavs-operator-port-{{.WAVS_INSTANCE}}
+      WAVS_URL: "http://127.0.0.1:{{.WAVS_PORT}}"
+    cmds:
+      - echo "🚀 Adding service to operator {{.WAVS_INSTANCE}}..."
+      - >
+        cd packages/cli && cargo run operator-add-service
+        --wavs-url {{.WAVS_URL}}
+        --service-manager-address "{{.ADDR}}"

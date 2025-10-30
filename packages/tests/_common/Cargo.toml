@@ -1,0 +1,21 @@
+[package]
+name = "ai-portfolio-test-common"
+version = "0.0.1"
+edition = "2021"
+authors = ["Layer Labs (Cayman)"]
+repository = "https://github.com/Lay3rLabs/wavs-ai-trader.git"
+license = "GPL-3.0-or-later"
+publish = false
+
+[features]
+default = []
+on-chain = ["ai-portfolio-utils/on-chain"]
+
+[dependencies]
+ai-portfolio-utils = { path = "../../utils" }
+vault = { path = "../../../contracts/vault", features = ["library"] }
+wavs-types = { version = "=2.0.0-alpha.7", default-features = false, features = ["cosmwasm"] }
+cosmwasm-std = { version = "=3.0.2", features = ["cosmwasm_2_0"] }
+anyhow = "1.0.98"
+serde = { version = "1.0.219", features = ["derive"] }
+layer-climb = "0.8.3"

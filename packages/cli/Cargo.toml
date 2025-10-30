@@ -1,0 +1,27 @@
+[package]
+name = "ai-portfolio-cli"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+vault = { workspace = true }
+ai-portfolio-utils = { workspace = true, features = ["on-chain"] }
+ai-portfolio-types = { workspace = true }
+tokio = { workspace = true }
+clap = { workspace = true }
+dotenvy = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+wavs-types = { workspace = true }
+rustls = { workspace = true }
+tracing = { workspace = true }
+layer-climb = { workspace = true }
+layer-climb-address = { workspace = true }
+cosmwasm-std = { workspace = true }
+reqwest = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }

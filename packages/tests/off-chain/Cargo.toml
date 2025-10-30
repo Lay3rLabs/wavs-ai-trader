@@ -1,0 +1,22 @@
+[package]
+name = "off-chain-tests"
+version = "0.0.1"
+edition = "2021"
+authors = ["Layer Labs (Cayman)"]
+rust-version = "1.90.0"
+repository = "https://github.com/Lay3rLabs/wavs-ai-trader.git"
+license = "GPL-3.0-or-later"
+publish = false
+
+[dependencies]
+ai-portfolio-utils = { path = "../../utils", features = ["multitest"] }
+ai-portfolio-test-common = { path = "../_common" }
+vault = { path = "../../../contracts/vault", features = ["library"] }
+wavs-types = { version = "=2.0.0-alpha.7", default-features = false, features = ["cosmwasm"] }
+cw-multi-test = { version = "3.0.1", features = ["staking", "stargate", "cosmwasm_2_0"] }
+cosmwasm-std = { version = "=3.0.2", features = ["cosmwasm_2_0"] }
+tokio = { version = "1.47.1", features = ["full"] }
+anyhow = "1.0.98"
+serde = { version = "1.0.219", features = ["derive"] }
+async-trait = "0.1.88"
+layer-climb-address = { version = "0.8.3", features = ["cw-storage", "openapi"] }

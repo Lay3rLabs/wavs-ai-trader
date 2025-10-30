@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdError,
-    StdResult,
+    to_json_binary, Binary, Coin, Decimal256, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    StdError, StdResult,
 };
 use cw2::set_contract_version;
 use wavs_types::contracts::cosmwasm::service_handler::{
@@ -12,7 +12,7 @@ use wavs_types::contracts::cosmwasm::service_handler::{
 use crate::error::ContractError;
 use crate::execute::calculate_vault_usd_value;
 use crate::state::{
-    DEPOSIT_ID_COUNTER, SKIP_ENTRY_POINT, TOTAL_SHARES, TRADE_TRACKER, VAULT_ASSETS,
+    DEPOSIT_ID_COUNTER, PRICES, SKIP_ENTRY_POINT, TOTAL_SHARES, TRADE_TRACKER, VAULT_ASSETS,
     VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
 };
 
@@ -55,7 +55,8 @@ pub fn instantiate(
 
     // Initialize whitelisted denoms
     for denom in msg.initial_whitelisted_denoms {
-        WHITELISTED_DENOMS.save(deps.storage, denom, &())?;
+        WHITELISTED_DENOMS.save(deps.storage, denom.clone(), &())?;
+        PRICES.save(deps.storage, denom, &Decimal256::zero())?;
     }
 
     // Initialize deposit_id counter to 0
@@ -97,6 +98,7 @@ pub fn execute(
 
                 Ok(Response::new().add_attributes(ownership.into_attributes()))
             }
+            VaultExecuteMsg::ManualTrigger {} => execute::manual_trigger(deps, env, info),
         },
         ExecuteMsg::Wavs(msg) => match msg {
             ServiceHandlerExecuteMessages::WavsHandleSignedEnvelope {
@@ -124,23 +126,39 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
 
                 VAULT_ASSETS.update::<_, ContractError>(
                     deps.storage,
-                    trade_info.out_denom,
+                    trade_info.out_denom.clone(),
                     |_| Ok(out_balance.amount),
                 )?;
                 VAULT_ASSETS.update::<_, ContractError>(
                     deps.storage,
-                    trade_info.in_coin.denom,
+                    trade_info.in_coin.denom.clone(),
                     |_| Ok(in_balance.amount),
                 )?;
+
+                // Add trade completion event
+                let mut response = Response::new().add_event(
+                    cosmwasm_std::Event::new("trade_completed")
+                        .add_attribute("out_denom", &trade_info.out_denom)
+                        .add_attribute("out_balance", out_balance.amount.to_string())
+                        .add_attribute("in_denom", &trade_info.in_coin.denom)
+                        .add_attribute("in_balance", trade_info.in_coin.amount.to_string()),
+                );
 
                 // Once all operations are completed, then calculate vault value again
                 if TRADE_TRACKER.is_empty(deps.storage)? {
                     let updated_vault_value = calculate_vault_usd_value(deps.storage)?;
                     VAULT_VALUE_DEPOSITED.save(deps.storage, &updated_vault_value)?;
-                }
-            }
 
-            Ok(Response::new())
+                    response = response.add_event(
+                        cosmwasm_std::Event::new("trade_finalized")
+                            .add_attribute("vault_value_usd", updated_vault_value.to_string()),
+                    );
+                }
+
+                Ok(response)
+            } else {
+                Ok(Response::new())
+            }
         }
         _ => Err(ContractError::UnknownReplyId { id: msg.id }),
     }
@@ -149,6 +167,16 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+    if PRICES.is_empty(deps.storage) {
+        let denoms = WHITELISTED_DENOMS
+            .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+            .collect::<Vec<_>>();
+        for denom in denoms {
+            PRICES.save(deps.storage, denom?, &Decimal256::zero())?;
+        }
+    }
+
     Ok(Response::default())
 }
 
