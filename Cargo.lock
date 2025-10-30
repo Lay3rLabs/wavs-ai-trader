@@ -38,8 +38,8 @@ dependencies = [
  "wavs-types",
  "wavs-wasi-utils",
  "wit-bindgen 0.47.0",
- "wit-bindgen-rt 0.44.0",
- "wstd 0.6.1",
+ "wit-bindgen-rt",
+ "wstd",
 ]
 
 [[package]]
@@ -80,8 +80,8 @@ dependencies = [
  "wavs-types",
  "wavs-wasi-utils",
  "wit-bindgen 0.47.0",
- "wit-bindgen-rt 0.44.0",
- "wstd 0.6.1",
+ "wit-bindgen-rt",
+ "wstd",
 ]
 
 [[package]]
@@ -2119,15 +2119,6 @@ dependencies = [
 
 [[package]]
 name = "fastrand"
-version = "1.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e51093e27b0797c359783294ca4f0a911c270184cb10f85783b118614a1501be"
-dependencies = [
- "instant",
-]
-
-[[package]]
-name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
@@ -2298,21 +2289,6 @@ name = "futures-io"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e5c1b78ca4aae1ac06c48a526a655760685149f0d465d21f37abfe57ce075c6"
-
-[[package]]
-name = "futures-lite"
-version = "1.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49a9d51ce47660b1e808d3c990b4709f2f415d928835a17dfd16991515c46bce"
-dependencies = [
- "fastrand 1.9.0",
- "futures-core",
- "futures-io",
- "memchr",
- "parking",
- "pin-project-lite",
- "waker-fn",
-]
 
 [[package]]
 name = "futures-macro"
@@ -2906,15 +2882,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "instant"
-version = "0.1.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
-dependencies = [
- "cfg-if",
-]
-
-[[package]]
 name = "ipnet"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3042,9 +3009,9 @@ dependencies = [
 
 [[package]]
 name = "layer-climb"
-version = "0.8.3"
+version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cffc4217ea29770a26cc0ab8f02b1ca8d0f3a547c2c3ee914c4ac0a754526a23"
+checksum = "308a79dd327ed419fe3b9c539544819f8c9fb04147a29c023970836926aaba25"
 dependencies = [
  "layer-climb-address",
  "layer-climb-config",
@@ -3055,9 +3022,9 @@ dependencies = [
 
 [[package]]
 name = "layer-climb-address"
-version = "0.8.3"
+version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4eca7d61ee12c1f366a97acb9a1afc3b30691e9394c3c9efcb1e0be7520506ee"
+checksum = "e5441487e6bdb5edd5b38712a63ae0b4f1b0966017e5da97b7481ab9738b4503"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -3074,9 +3041,9 @@ dependencies = [
 
 [[package]]
 name = "layer-climb-config"
-version = "0.8.3"
+version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2290c1b025df6d9298473571f679393d3eff2723e9a5218f3c044a1163bff61c"
+checksum = "f6ee9f79b9778b2a972140eb97fe2b5a5fb10b08dc6fafe7abb9c19bf8d09e08"
 dependencies = [
  "anyhow",
  "layer-climb-address",
@@ -3087,9 +3054,9 @@ dependencies = [
 
 [[package]]
 name = "layer-climb-core"
-version = "0.8.3"
+version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8afd9dc3a48551999949f7cf70d0a74039e332ee065e2be63d9b029f2079848"
+checksum = "403e85ee194066b7f3d35b4329cc8800a06e2db9d4f553d52a90f748d07065c7"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3124,14 +3091,14 @@ dependencies = [
  "tonic-web-wasm-client",
  "tower-service",
  "tracing",
- "wstd 0.5.6",
+ "wstd",
 ]
 
 [[package]]
 name = "layer-climb-proto"
-version = "0.8.3"
+version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd6fd1b0f2f8eccd134ce7697d4cd65c805942a0e4f16802e2103d3a4d15f1ea"
+checksum = "d1de4d7b28de7f2672a2ec76db3e2adbb7ed74f6db6f872bc5c5bd55e1cf7412"
 dependencies = [
  "anyhow",
  "cosmos-sdk-proto",
@@ -3142,9 +3109,9 @@ dependencies = [
 
 [[package]]
 name = "layer-climb-signer"
-version = "0.8.3"
+version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5198866eedb10a467079922615d4c23d1bae8eecaa827e36bdde2146364f1e59"
+checksum = "413d641e70773a2ceca55e0c906796e41b37bf1df88fb00175f13bb6402452a0"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -3569,12 +3536,6 @@ dependencies = [
  "quote",
  "syn 2.0.108",
 ]
-
-[[package]]
-name = "parking"
-version = "2.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f38d5652c16fde515bb1ecef450ab0f6a219d619a7274976324d5e377f7dceba"
 
 [[package]]
 name = "parking_lot"
@@ -5007,7 +4968,7 @@ version = "3.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d31c77bdf42a745371d260a26ca7163f1e0924b64afa0b688e61b5a9fa02f16"
 dependencies = [
- "fastrand 2.3.0",
+ "fastrand",
  "getrandom 0.3.4",
  "once_cell",
  "rustix",
@@ -5745,12 +5706,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "waker-fn"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "317211a0dc0ceedd78fb2ca9a44aed3d7b9b26f81870d485c07122b4350673b7"
-
-[[package]]
 name = "walkdir"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5963,9 +5918,9 @@ dependencies = [
 
 [[package]]
 name = "wavs-wasi-utils"
-version = "0.5.1"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a195f2d28206d9ae96bdba0d8ba854a45a30689af28d064ba43e07e42b331d8"
+checksum = "e05a80e4ff42d1f13a7f247dd34e377eb586bea634881cf9f98b0762a228ef54"
 dependencies = [
  "alloy-json-rpc",
  "alloy-primitives",
@@ -5982,8 +5937,7 @@ dependencies = [
  "serde_json",
  "tower-service",
  "wasi 0.14.7+wasi-0.2.4",
- "wit-bindgen-rt 0.43.0",
- "wstd 0.5.6",
+ "wstd",
 ]
 
 [[package]]
@@ -6324,17 +6278,6 @@ dependencies = [
 
 [[package]]
 name = "wit-bindgen-rt"
-version = "0.43.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fd734226eac1fd7c450956964e3a9094c9cee65e9dafdf126feef8c0096db65"
-dependencies = [
- "bitflags",
- "futures",
- "once_cell",
-]
-
-[[package]]
-name = "wit-bindgen-rt"
 version = "0.44.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "653c85dd7aee6fe6f4bded0d242406deadae9819029ce6f7d258c920c384358a"
@@ -6427,29 +6370,7 @@ dependencies = [
  "serde_json",
  "slab",
  "wasip2",
- "wstd-macro 0.5.6",
-]
-
-[[package]]
-name = "wstd"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f24dcf801e5b8d174548009c8fbc4f0a920038b10b5660240dea4f36268881a7"
-dependencies = [
- "anyhow",
- "async-task",
- "bytes",
- "futures-lite",
- "http",
- "http-body",
- "http-body-util",
- "itoa",
- "pin-project-lite",
- "serde",
- "serde_json",
- "slab",
- "wasip2",
- "wstd-macro 0.6.1",
+ "wstd-macro",
 ]
 
 [[package]]
@@ -6457,16 +6378,6 @@ name = "wstd-macro"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb142608f932022fa7d155d8ed99649d02c56a50532e71913a5a03c7c4e288d3"
-dependencies = [
- "quote",
- "syn 2.0.108",
-]
-
-[[package]]
-name = "wstd-macro"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5d60161312c6f25c68356388b546960bd2321956789d62673fe7dc67b9023bd"
 dependencies = [
  "quote",
  "syn 2.0.108",

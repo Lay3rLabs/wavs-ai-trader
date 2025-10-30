@@ -1,7 +1,9 @@
 use anyhow::{anyhow, Context, Result};
 use cosmwasm_std::Uint128;
 use serde::Serialize;
-use wstd::http::{Body, Client, Method, Request};
+use wstd::http::{Client, Method, Request};
+use wstd::http::body::StreamedBody;
+use wstd::io::Cursor;
 
 mod types;
 
@@ -50,10 +52,14 @@ impl SkipAPIClient {
             allow_multi_tx: false,
         };
 
+        let body_bytes = serde_json::to_vec(&request)
+            .context("failed to serialize Skip route request")?;
+
         let req = Request::builder()
             .method(Method::POST)
             .uri(ROUTE)
-            .body(Body::from_json(&request).context("failed to serialize Skip route request")?)?;
+            .header("content-type", "application/json")
+            .body(StreamedBody::new(Cursor::new(body_bytes)))?;
 
         let client = Client::new();
         let response = client
@@ -65,11 +71,12 @@ impl SkipAPIClient {
         let mut body = response.into_body();
 
         if !status.is_success() {
-            let message = body
-                .str_contents()
+            let bytes = body
+                .bytes()
                 .await
-                .context("failed to read Skip route error body")
-                .unwrap_or("<non-utf8 response>");
+                .context("failed to read Skip route error body")?;
+            let message = String::from_utf8(bytes)
+                .unwrap_or_else(|_| "<non-utf8 response>".to_string());
             return Err(anyhow!("Skip route API returned {status}: {message}"));
         }
 

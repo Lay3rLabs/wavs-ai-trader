@@ -3,9 +3,11 @@ use std::{collections::HashMap, str::FromStr};
 use anyhow::{anyhow, Context, Result};
 use cosmwasm_std::{Decimal256, Uint256};
 use serde::Deserialize;
+use wstd::http::body::StreamedBody;
 use wstd::http::{Client, Method, Request};
+use wstd::io::Cursor;
 
-const SIMPLE_PRICE_ENDPOINT: &str = "https://pro-api.coingecko.com/api/v3/simple/price";
+const SIMPLE_PRICE_ENDPOINT: &str = "https://api.coingecko.com/api/v3/simple/price";
 
 pub struct CoinGeckoApiClient {
     client: Client,
@@ -35,20 +37,19 @@ impl CoinGeckoApiClient {
             .collect::<Vec<&str>>()
             .join(",");
 
-        let mut uri = format!(
+        let uri = format!(
             "{}?ids={}&vs_currencies={}",
             SIMPLE_PRICE_ENDPOINT, ids_param, vs_currency
         );
 
+        let mut request_builder = Request::builder().method(Method::GET).uri(&uri);
+
         if let Some(key) = &self.api_key {
-            uri.push_str("&x_cg_pro_api_key=");
-            uri.push_str(key);
+            request_builder = request_builder.header("x-cg-demo-api-key", key);
         }
 
-        let req = Request::builder()
-            .method(Method::GET)
-            .uri(&uri)
-            .body(())
+        let req = request_builder
+            .body(StreamedBody::new(Cursor::new(Vec::new())))
             .context("failed to build CoinGecko request")?;
 
         let response = self
@@ -61,11 +62,12 @@ impl CoinGeckoApiClient {
         let mut body = response.into_body();
 
         if !status.is_success() {
-            let message = body
-                .str_contents()
+            let bytes = body
+                .bytes()
                 .await
-                .context("failed to read CoinGecko error response")
-                .unwrap_or("<non-utf8 response>");
+                .context("failed to read CoinGecko error response")?;
+            let message =
+                String::from_utf8(bytes).unwrap_or_else(|_| "<non-utf8 response>".to_string());
             anyhow::bail!("CoinGecko API returned {status}: {message}");
         }
 
