@@ -3,6 +3,9 @@
 debug
 target
 builds
+!builds/deployments/vault.json
+!builds/deployments/middleware.json
+!**/*code-id.json
 artifacts
 backend/bin
 wit/
