@@ -3,23 +3,28 @@ use std::{collections::HashMap, str::FromStr};
 use anyhow::{anyhow, Context, Result};
 use cosmwasm_std::{Decimal256, Uint256};
 use serde::Deserialize;
-use wstd::http::body::StreamedBody;
-use wstd::http::{Client, Method, Request};
-use wstd::io::Cursor;
+use wavs_wasi_utils::http;
+use wstd::http::Request;
 
 const SIMPLE_PRICE_ENDPOINT: &str = "https://api.coingecko.com/api/v3/simple/price";
 
 pub struct CoinGeckoApiClient {
-    client: Client,
     api_key: Option<String>,
 }
 
 impl CoinGeckoApiClient {
     pub fn new(api_key: Option<String>) -> Self {
-        Self {
-            client: Client::new(),
-            api_key,
-        }
+        Self { api_key }
+    }
+
+    /// Helper to add a header to a request
+    fn add_header_to_request<B>(
+        mut request: Request<B>,
+        key: &'static str,
+        value: String,
+    ) -> Result<Request<B>> {
+        request.headers_mut().insert(key, value.parse()?);
+        Ok(request)
     }
 
     pub async fn query_prices(
@@ -42,39 +47,23 @@ impl CoinGeckoApiClient {
             SIMPLE_PRICE_ENDPOINT, ids_param, vs_currency
         );
 
-        let mut request_builder = Request::builder().method(Method::GET).uri(&uri);
+        // Create GET request with optional API key header
+        let request = http::http_request_get(&uri)?;
 
-        if let Some(key) = &self.api_key {
-            request_builder = request_builder.header("x-cg-demo-api-key", key);
-        }
+        let request = if let Some(key) = &self.api_key {
+            // Add API key header if present
+            Self::add_header_to_request(request, "x-cg-demo-api-key", key.clone())?
+        } else {
+            request
+        };
 
-        let req = request_builder
-            .body(StreamedBody::new(Cursor::new(Vec::new())))
-            .context("failed to build CoinGecko request")?;
+        eprintln!("Making CoinGecko API request to: {}", uri);
 
-        let response = self
-            .client
-            .send(req)
+        let payload: SimplePriceResponse = http::fetch_json(request)
             .await
             .context("failed to call CoinGecko API")?;
 
-        let status = response.status();
-        let mut body = response.into_body();
-
-        if !status.is_success() {
-            let bytes = body
-                .bytes()
-                .await
-                .context("failed to read CoinGecko error response")?;
-            let message =
-                String::from_utf8(bytes).unwrap_or_else(|_| "<non-utf8 response>".to_string());
-            anyhow::bail!("CoinGecko API returned {status}: {message}");
-        }
-
-        let payload: SimplePriceResponse = body
-            .json()
-            .await
-            .context("failed to decode CoinGecko response")?;
+        eprintln!("CoinGecko API response received successfully");
 
         let mut prices = HashMap::new();
         for (denom, id, decimals) in assets {

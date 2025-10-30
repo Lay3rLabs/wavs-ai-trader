@@ -1,9 +1,7 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use cosmwasm_std::Uint128;
 use serde::Serialize;
-use wstd::http::body::StreamedBody;
-use wstd::http::{Client, Method, Request};
-use wstd::io::Cursor;
+use wavs_wasi_utils::http;
 
 mod types;
 
@@ -52,37 +50,18 @@ impl SkipAPIClient {
             allow_multi_tx: false,
         };
 
-        let body_bytes =
-            serde_json::to_vec(&request).context("failed to serialize Skip route request")?;
+        // Debug log the request
+        eprintln!("Making Skip API request to: {}", ROUTE);
+        eprintln!("Request body: {}", serde_json::to_string(&request)?);
 
-        let req = Request::builder()
-            .method(Method::POST)
-            .uri(ROUTE)
-            .header("content-type", "application/json")
-            .body(StreamedBody::new(Cursor::new(body_bytes)))?;
-
-        let client = Client::new();
-        let response = client
-            .send(req)
-            .await
-            .context("failed to call Skip route API")?;
-
-        let status = response.status();
-        let mut body = response.into_body();
-
-        if !status.is_success() {
-            let bytes = body
-                .bytes()
+        let route_plan: RoutePlan =
+            http::fetch_json(http::http_request_post_json(ROUTE, &request)?)
                 .await
-                .context("failed to read Skip route error body")?;
-            let message =
-                String::from_utf8(bytes).unwrap_or_else(|_| "<non-utf8 response>".to_string());
-            return Err(anyhow!("Skip route API returned {status}: {message}"));
-        }
+                .context("failed to fetch Skip route response")?;
 
-        body.json::<RoutePlan>()
-            .await
-            .context("failed to decode Skip route response")
+        eprintln!("Skip API response received successfully");
+
+        Ok(route_plan)
     }
 }
 
