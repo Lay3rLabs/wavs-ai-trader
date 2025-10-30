@@ -49,6 +49,7 @@ tasks:
           CODE_ID:
             sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/vault-code-id.json" | jq -r '.code_id'
           FILENAME: vault.json
+      # SET OPERATOR DETAILS ON STAKE REGISTRY AND SIGNING KEY ON SERVICE MANAGER
       - task: set-service
       - task: register-service
       - echo ""
@@ -192,6 +193,26 @@ tasks:
       - |
         cd packages/cli && cargo run set-signing-key \
           --service-manager-address={{.SERVICE_MANAGER_ADDRESS}} \
+          --operator={{.OPERATOR}} \
+          --signing-key={{.SIGNING_KEY}} \
+          --weight={{.WEIGHT}}
+
+  set-operator-details-*:
+    deps: [assert-account-exists]
+    requires:
+      vars: [WEIGHT]
+    vars:
+      OPERATOR:
+        sh: cd "{{.REPO_ROOT}}" && task backend:get-wavs-operator-address-{{index .MATCH 0}}
+      SIGNING_KEY:
+        sh: cd "{{.REPO_ROOT}}" && task backend:get-wavs-operator-signing-key-{{index .MATCH 0}}
+      STAKE_REGISTRY_ADDRESS:
+        sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/middleware.json" | jq -r '.registry_address'
+    cmds:
+      - echo "🚀 Setting operator details on stake registry {{.STAKE_REGISTRY_ADDRESS}}..."
+      - |
+        cd packages/cli && cargo run set-operator-details \
+          --stake-registry-address={{.STAKE_REGISTRY_ADDRESS}} \
           --operator={{.OPERATOR}} \
           --signing-key={{.SIGNING_KEY}} \
           --weight={{.WEIGHT}}

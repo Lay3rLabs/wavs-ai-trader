@@ -33,6 +33,7 @@ impl CliContext {
             CliCommand::MigrateVault { args, .. } => args,
             CliCommand::ManualTrigger { args, .. } => args,
             CliCommand::SetSigningKey { args, .. } => args,
+            CliCommand::SetOperatorDetails { args, .. } => args,
         }
     }
 

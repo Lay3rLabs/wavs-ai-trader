@@ -158,6 +158,26 @@ pub enum CliCommand {
         #[clap(flatten)]
         args: CliArgs,
     },
+    SetOperatorDetails {
+        /// The address of the stake registry contract
+        #[arg(long)]
+        stake_registry_address: String,
+
+        /// The operator address (EVM address)
+        #[arg(long)]
+        operator: String,
+
+        /// The signing key address (EVM address)
+        #[arg(long)]
+        signing_key: String,
+
+        /// The weight for the signing key
+        #[arg(long)]
+        weight: String,
+
+        #[clap(flatten)]
+        args: CliArgs,
+    },
 }
 
 // common args for several commands
@@ -203,6 +223,8 @@ impl CliArgs {
 #[serde(rename_all = "snake_case")]
 pub enum ContractKind {
     Vault,
+    StakeRegistry,
+    ServiceManager,
 }
 
 impl std::fmt::Display for ContractKind {
@@ -215,6 +237,8 @@ impl ContractKind {
     pub fn as_str(&self) -> &str {
         match self {
             Self::Vault => "vault",
+            Self::StakeRegistry => "stake_registry",
+            Self::ServiceManager => "service_manager",
         }
     }
     pub async fn wasm_bytes(&self) -> Vec<u8> {

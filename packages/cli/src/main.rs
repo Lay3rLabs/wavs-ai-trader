@@ -544,8 +544,6 @@ async fn main() -> anyhow::Result<()> {
 
             // Create the SetSigningKey message
             // Note: Since we don't have the exact service manager contract interface,
-            // we'll create a generic execute message. The actual message structure
-            // would depend on the service manager contract's ABI
             let set_signing_key_msg = serde_json::json!({
                 "set_signing_key": {
                     "operator": operator_evm.to_string(),
@@ -565,8 +563,64 @@ async fn main() -> anyhow::Result<()> {
 
             args.output()
                 .write(OutputData::ContractExecute {
-                    kind: crate::command::ContractKind::Vault, // Using Vault as placeholder
+                    kind: crate::command::ContractKind::ServiceManager,
                     address: service_manager_address,
+                    tx_hash: tx_resp.txhash,
+                })
+                .await?;
+            Ok(())
+        }
+        CliCommand::SetOperatorDetails {
+            stake_registry_address,
+            operator,
+            signing_key,
+            weight,
+            args,
+        } => {
+            let client = ctx.signing_client().await?;
+            let stake_registry_addr = ctx.parse_address(&stake_registry_address).await?;
+
+            // Parse EVM addresses
+            let operator_evm: EvmAddr = operator.parse().map_err(|e| {
+                anyhow::anyhow!("Invalid operator EVM address '{}': {}", operator, e)
+            })?;
+            let signing_key_evm: EvmAddr = signing_key.parse().map_err(|e| {
+                anyhow::anyhow!("Invalid signing_key EVM address '{}': {}", signing_key, e)
+            })?;
+
+            // Parse weight as Uint256
+            let weight_uint: Uint256 = weight
+                .parse()
+                .map_err(|e| anyhow::anyhow!("Invalid weight '{}': {}", weight, e))?;
+
+            // Create the SetOperatorDetails message
+            // Note: Since we don't have the exact stake registry contract interface,
+            let set_operator_details_msg = serde_json::json!({
+                "set_operator_details": {
+                    "operator": operator_evm.to_string(),
+                    "signing_key": signing_key_evm.to_string(),
+                    "weight": weight_uint.to_string()
+                }
+            });
+
+            let tx_resp = client
+                .contract_execute(
+                    &stake_registry_addr,
+                    &set_operator_details_msg,
+                    vec![],
+                    None,
+                )
+                .await?;
+
+            println!(
+                "Set signing key for operator {} with signing key {} and weight {} on stake_registry contract {} with tx hash: {}",
+                operator_evm, signing_key_evm, weight_uint, stake_registry_addr, tx_resp.txhash
+            );
+
+            args.output()
+                .write(OutputData::ContractExecute {
+                    kind: crate::command::ContractKind::StakeRegistry,
+                    address: stake_registry_address,
                     tx_hash: tx_resp.txhash,
                 })
                 .await?;
