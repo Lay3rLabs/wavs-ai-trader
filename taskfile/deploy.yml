@@ -5,6 +5,11 @@ includes:
     taskfile: ./config.yml
     flatten: true
 
+# NOTE: Since contracts are already deployed, you can get started on a fresh instance by just running:
+# 1. task deploy:set-service
+# 2. task deploy:register-service
+# 3. Test execution with task deploy:contract-manual-trigger
+
 vars:
   INITIAL_WHITELISTED_DENOMS:
     [
