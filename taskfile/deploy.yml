@@ -52,6 +52,12 @@ tasks:
           COMPONENT_OPERATOR: "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/operator-cid.json"
           COMPONENT_AGGREGATOR: "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/aggregator-cid.json"
           FILENAME: service-cid.json
+      - task: middleware-set-service-uri
+        vars:
+          ADDR:
+            sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/service-cid.json" | jq -r '.service.manager.cosmos.address'
+          URI:
+            sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/service-cid.json" | jq -r '.gateway_url'
       - task: aggregator-register-service
         vars:
           ADDR:
@@ -284,6 +290,25 @@ tasks:
         --cron-schedule "{{.SERVICE_CRON_SCHEDULE}}"
         --trade-strategy "{{.SERVICE_TRADE_STRATEGY}}"
         --aggregator-url {{.AGGREGATOR_URL}}
+
+  middleware-set-service-uri:
+    deps: [assert-account-exists]
+    requires:
+      vars: [ADDR, URI]
+    cmds:
+      - echo "🚀 Setting Service URI on service-manager contract..."
+      - >
+        docker run --rm
+        --network host
+        -v "{{.WAVS_HOME_DIR}}":/wavs-home:ro
+        -v "{{.DEPLOYMENTS_ARTIFACTS_PATH}}":/output
+        -e CHAIN_KEY="{{.CHAIN_KEY}}"
+        -e WAVS_HOME="/wavs-home"
+        -e CLI_MNEMONIC="{{.CLI_MNEMONIC}}"
+        {{.WAVS_CW_MIDDLEWARE_DOCKER_IMAGE}}
+        service-manager set-service-uri
+        --address "{{.ADDR}}"
+        --uri "{{.URI}}"
 
   aggregator-register-service:
     requires:
