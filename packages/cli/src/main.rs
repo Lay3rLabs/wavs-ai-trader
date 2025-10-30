@@ -468,12 +468,14 @@ async fn main() -> anyhow::Result<()> {
 
             let contract_addr = ctx.parse_address(&contract_address).await?;
 
-            let vault_executor = VaultExecutor::new(client.into(), contract_addr.into());
-
-            let tx_resp = vault_executor
-                .manual_trigger()
-                .await?
-                .unchecked_into_tx_response();
+            let tx_resp = client
+                .contract_execute(
+                    &contract_addr,
+                    &vault::ExecuteMsg::Vault(vault::VaultExecuteMsg::ManualTrigger {}),
+                    vec![],
+                    None,
+                )
+                .await?;
 
             args.output()
                 .write(OutputData::ContractExecute {
