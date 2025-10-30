@@ -1,6 +1,6 @@
 {
   "contract_kind": "mirror_stake",
-  "registry_address": "neutron1pevj09u3xyycg8l5g0plmen2vkd7sl82wc4suqa34qtfgs9nfwws4hfwl9",
-  "service_manager_address": "neutron1s9xtlngjzlu8mpxghh87sghuuv7v4ag2mg0t27kt8v8hdeur3zhsr7k6sw",
-  "tx_hash": "3E446B202BF60084935F86AFB3A901D9FB2FC552D63BFCA2030D0C1777035F7D"
+  "registry_address": "neutron1h28kq9dxpspmktgz0wms76ugrzh7xl9yvxmqh4tzdwdajuv2jsmq20n029",
+  "service_manager_address": "neutron1qgcypua830aaq0jhsxjwjgyrahf8eqcm6hlvayq447lz0hssvd0sdlcpfp",
+  "tx_hash": "8310DFAFEA9D4EFB96601FE9824EB1B742059EE5EC925D678A60C1F3431DFB5D"
 }
