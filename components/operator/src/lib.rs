@@ -31,11 +31,20 @@ impl Guest for Component {
     fn run(action: TriggerAction) -> std::result::Result<Option<WasmResponse>, String> {
         let trigger_time = match action.data {
             TriggerData::CosmosContractEvent(TriggerDataCosmosContractEvent { event, .. }) => {
+                // Search through attributes to find the one with key "trigger_time"
+                let trigger_time_str = event
+                    .attributes
+                    .iter()
+                    .find(|(key, _)| key == "trigger_time")
+                    .map(|(_, value)| value)
+                    .ok_or_else(|| {
+                        format!("Could not find 'trigger_time' attribute in event {event:?}")
+                    })?;
+
                 Ok(Timestamp {
-                    nanos: event.attributes[0]
-                        .1
+                    nanos: trigger_time_str
                         .parse()
-                        .map_err(|e| format!("Could not parse event attributes {event:?}: {e}"))?,
+                        .map_err(|e| format!("Could not parse trigger_time '{trigger_time_str}' from event {event:?}: {e}"))?,
                 })
             }
             TriggerData::Cron(TriggerDataCron { trigger_time }) => Ok(trigger_time),

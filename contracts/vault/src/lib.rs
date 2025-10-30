@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdError,
-    StdResult,
+    to_json_binary, Binary, Coin, Decimal256, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    StdError, StdResult,
 };
 use cw2::set_contract_version;
 use wavs_types::contracts::cosmwasm::service_handler::{
@@ -12,7 +12,7 @@ use wavs_types::contracts::cosmwasm::service_handler::{
 use crate::error::ContractError;
 use crate::execute::calculate_vault_usd_value;
 use crate::state::{
-    DEPOSIT_ID_COUNTER, SKIP_ENTRY_POINT, TOTAL_SHARES, TRADE_TRACKER, VAULT_ASSETS,
+    DEPOSIT_ID_COUNTER, PRICES, SKIP_ENTRY_POINT, TOTAL_SHARES, TRADE_TRACKER, VAULT_ASSETS,
     VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
 };
 
@@ -55,7 +55,8 @@ pub fn instantiate(
 
     // Initialize whitelisted denoms
     for denom in msg.initial_whitelisted_denoms {
-        WHITELISTED_DENOMS.save(deps.storage, denom, &())?;
+        WHITELISTED_DENOMS.save(deps.storage, denom.clone(), &())?;
+        PRICES.save(deps.storage, denom, &Decimal256::zero())?;
     }
 
     // Initialize deposit_id counter to 0
@@ -166,6 +167,16 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+    if PRICES.is_empty(deps.storage) {
+        let denoms = WHITELISTED_DENOMS
+            .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+            .collect::<Vec<_>>();
+        for denom in denoms {
+            PRICES.save(deps.storage, denom?, &Decimal256::zero())?;
+        }
+    }
+
     Ok(Response::default())
 }
 

@@ -3,9 +3,7 @@ mod context;
 mod ipfs;
 mod output;
 
-use ai_portfolio_utils::{
-    addresses::skip_swap_entry_point, client::vault::VaultExecutor, faucet, tracing::tracing_init,
-};
+use ai_portfolio_utils::{addresses::skip_swap_entry_point, faucet, tracing::tracing_init};
 use layer_climb::prelude::CosmosAddr;
 use vault::InstantiateMsg;
 use wavs_types::ServiceManager;

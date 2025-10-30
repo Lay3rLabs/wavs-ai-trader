@@ -45,6 +45,9 @@ tasks:
             sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/vault-code-id.json" | jq -r '.code_id'
           FILENAME: vault.json
       - task: set-service
+      - task: register-service
+      - echo ""
+      - echo "✅ Deployment completed! Artifacts are in {{.DEPLOYMENTS_ARTIFACTS_PATH}}"
 
   set-service:
     deps: [all-upload-components]
@@ -62,9 +65,6 @@ tasks:
             sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/service-cid.json" | jq -r '.service.manager.cosmos.address'
           URI:
             sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/service-cid.json" | jq -r '.gateway_url'
-      - task: register-service
-      - echo ""
-      - echo "✅ Deployment completed! Artifacts are in {{.DEPLOYMENTS_ARTIFACTS_PATH}}"
 
   register-service:
     deps:
