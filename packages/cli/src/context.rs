@@ -30,6 +30,7 @@ impl CliContext {
             CliCommand::AssertAccountExists { args, .. } => args,
             CliCommand::AggregatorRegisterService { args, .. } => args,
             CliCommand::OperatorAddService { args, .. } => args,
+            CliCommand::MigrateVault { args, .. } => args,
         }
     }
 

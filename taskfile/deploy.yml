@@ -151,6 +151,17 @@ tasks:
       - echo "🚀 Instantiating Vault contract..."
       - cd packages/cli && cargo run instantiate-vault --output-filename={{.FILENAME}} --code-id={{.CODE_ID}} --initial-whitelisted-denoms {{.DENOM_STRING}}
 
+  contract-migrate-vault:
+    deps: [assert-account-exists]
+    requires:
+      vars: [NEW_CODE_ID]
+    vars:
+      CONTRACT_ADDRESS:
+        sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/vault.json" | jq -r '.address'
+    cmds:
+      - echo "🚀 Migrating Vault contract at {{.CONTRACT_ADDRESS}} to code ID {{.NEW_CODE_ID}}..."
+      - cd packages/cli && cargo run migrate-vault --contract-address={{.CONTRACT_ADDRESS}} --new-code-id={{.NEW_CODE_ID}}
+
   ###################################################################
   ######################## FAUCET   #################################
   ###################################################################

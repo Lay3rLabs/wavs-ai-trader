@@ -4,6 +4,7 @@ mod ipfs;
 mod output;
 
 use ai_portfolio_utils::{addresses::skip_swap_entry_point, faucet, tracing::tracing_init};
+use layer_climb::prelude::CosmosAddr;
 use vault::InstantiateMsg;
 use wavs_types::ServiceManager;
 
@@ -108,7 +109,7 @@ async fn main() -> anyhow::Result<()> {
 
             let (contract_addr, tx_resp) = client
                 .contract_instantiate(
-                    None,
+                    Some(client.addr.clone()),
                     code_id,
                     "WAVS Portfolio Vault",
                     &instantiate_msg,
@@ -256,7 +257,7 @@ async fn main() -> anyhow::Result<()> {
             };
 
             // Extract data based on variants
-            let (operator_component, aggregator_component, _vault_address) =
+            let (operator_component, aggregator_component, vault_address) =
                 match (&component_operator, &component_aggregator, &contract_vault) {
                     (
                         OutputData::ComponentUpload {
@@ -345,11 +346,23 @@ async fn main() -> anyhow::Result<()> {
                 submit,
             };
 
+            let manual_workflow = wavs_types::Workflow {
+                trigger: wavs_types::Trigger::CosmosContractEvent {
+                    address: CosmosAddr::new_str(&vault_address, None)?,
+                    chain: args.chain.clone(),
+                    event_type: "manual_trigger".to_string(),
+                },
+                ..workflow.clone()
+            };
+
             let service = wavs_types::Service {
                 name: "AI Portfolio Vault".to_string(),
-                workflows: [("update_prices".parse().unwrap(), workflow)]
-                    .into_iter()
-                    .collect(),
+                workflows: [
+                    ("update_prices_cron".parse().unwrap(), workflow),
+                    ("manual_trigger".parse().unwrap(), manual_workflow),
+                ]
+                .into_iter()
+                .collect(),
                 status: wavs_types::ServiceStatus::Active,
                 manager: wavs_types::ServiceManager::Cosmos {
                     chain: args.chain.clone(),
@@ -443,6 +456,36 @@ async fn main() -> anyhow::Result<()> {
                 return Err(err.into());
             }
 
+            Ok(())
+        }
+        CliCommand::MigrateVault {
+            contract_address,
+            new_code_id,
+            args,
+        } => {
+            let client = ctx.signing_client().await?;
+            let contract_addr = ctx.parse_address(&contract_address).await?;
+
+            // Empty migrate message
+            let migrate_msg = vault::MigrateMsg {};
+
+            let tx_resp = client
+                .contract_migrate(&contract_addr, new_code_id, &migrate_msg, None)
+                .await?;
+
+            println!(
+                "Migrated vault contract at address: {} to code ID: {} with tx hash: {}",
+                contract_address, new_code_id, tx_resp.txhash
+            );
+
+            args.output()
+                .write(OutputData::ContractMigrate {
+                    kind: crate::command::ContractKind::Vault,
+                    address: contract_address,
+                    new_code_id,
+                    tx_hash: tx_resp.txhash,
+                })
+                .await?;
             Ok(())
         }
     }

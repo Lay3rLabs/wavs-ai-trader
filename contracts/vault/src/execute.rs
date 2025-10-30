@@ -2,6 +2,7 @@ use cosmwasm_std::{
     ensure_eq, to_json_binary, BankMsg, Coin, CosmosMsg, Decimal256, DepsMut, Env, MessageInfo,
     Response, SubMsg, Uint256, WasmMsg,
 };
+use cw_ownable::assert_owner;
 use wavs_types::contracts::cosmwasm::service_handler::{WavsEnvelope, WavsSignatureData};
 use wavs_types::contracts::cosmwasm::service_manager::{
     ServiceManagerQueryMessages, WavsValidateResult,
@@ -587,4 +588,17 @@ struct ProcessedDepositInfo {
     user: String,
     value_usd: Decimal256,
     shares_issued: Uint256,
+}
+
+pub fn manual_trigger(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+) -> Result<Response, ContractError> {
+    assert_owner(deps.storage, &info.sender)?;
+
+    Ok(Response::new().add_event(
+        cosmwasm_std::Event::new("manual_trigger")
+            .add_attribute("trigger_time", env.block.time.nanos().to_string()),
+    ))
 }

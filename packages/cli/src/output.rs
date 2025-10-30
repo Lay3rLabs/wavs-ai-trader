@@ -45,6 +45,12 @@ pub enum OutputData {
         address: String,
         tx_hash: String,
     },
+    ContractMigrate {
+        kind: ContractKind,
+        address: String,
+        new_code_id: u64,
+        tx_hash: String,
+    },
     ComponentUpload {
         kind: ComponentKind,
 

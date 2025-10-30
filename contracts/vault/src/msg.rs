@@ -30,6 +30,7 @@ pub enum VaultExecuteMsg {
         prices: Vec<PriceInfo>,
         swap_routes: Option<Vec<SwapRoute>>,
     },
+    ManualTrigger {},
 }
 
 #[cw_serde]

@@ -36,6 +36,19 @@ pub enum CliCommand {
         #[clap(flatten)]
         args: CliArgs,
     },
+    /// Migrate the Vault contract
+    MigrateVault {
+        /// The address of the vault contract to migrate
+        #[arg(long)]
+        contract_address: String,
+
+        /// The new code ID to migrate to
+        #[arg(long)]
+        new_code_id: u64,
+
+        #[clap(flatten)]
+        args: CliArgs,
+    },
     /// Upload a component to IPFS
     UploadComponent {
         #[arg(long)]
