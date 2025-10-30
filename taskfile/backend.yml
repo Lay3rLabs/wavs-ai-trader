@@ -184,6 +184,9 @@ tasks:
       COMPOSE_WAVS_AGGREGATOR_PORT: "{{.WAVS_AGGREGATOR_PORT}}"
       WAVS_AGGREGATOR_COSMOS_CREDENTIAL:
         sh: task backend:get-wavs-aggregator-cosmos-credential
+    preconditions:
+      - sh: test -n "${WAVS_AGGREGATOR_COSMOS_CREDENTIAL}"
+        msg: "WAVS_AGGREGATOR_COSMOS_CREDENTIAL environment variable is not set"
     cmds:
       - echo "Starting WAVS Aggregator on port {{.WAVS_AGGREGATOR_PORT}}"
       - |
@@ -200,6 +203,9 @@ tasks:
       WAVS_OPERATOR_MNEMONIC:
         sh: task backend:get-wavs-operator-mnemonic-{{.WAVS_INSTANCE}}
       WAVS_LOG_LEVEL: '{{.RUST_LOG | default "info"}}'
+    preconditions:
+      - sh: test -n "${WAVS_OPERATOR_MNEMONIC}"
+        msg: "WAVS_OPERATOR_MNEMONIC environment variable is not set for instance {{.WAVS_INSTANCE}}"
     cmds:
       - |
         echo "Starting WAVS #{{.WAVS_INSTANCE}} on port $COMPOSE_WAVS_PORT"
