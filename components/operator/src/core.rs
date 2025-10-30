@@ -1,4 +1,7 @@
-use std::{cmp::Ordering, collections::HashMap, str::FromStr};
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+};
 
 use ai_portfolio_types::TradeStrategy;
 use anyhow::{anyhow, Context, Result};
@@ -70,97 +73,146 @@ pub async fn generate_payload(
     let mut surplus_list: Vec<HoldingSurplus> = Vec::new();
     let mut deficit_list: Vec<HoldingDeficit> = Vec::new();
 
-    for (denom, amount) in &holdings {
-        let price = match price_map.get(denom) {
-            Some(price) if !price.is_zero() => *price,
+    let mut denominators: HashSet<String> = holdings.keys().cloned().collect();
+    denominators.extend(allocation_targets.keys().cloned());
+
+    for denom in denominators {
+        let amount = holdings.get(&denom).copied().unwrap_or_else(Uint256::zero);
+        let price_option = price_map.get(&denom).copied();
+        let target_value = allocation_targets
+            .get(&denom)
+            .copied()
+            .unwrap_or_else(Decimal256::zero);
+
+        let price = match price_option {
+            Some(price) if !price.is_zero() => price,
+            _ if amount.is_zero() => {
+                // No holdings and missing price: we can still consider deficits using the target allocation.
+                if target_value.is_zero() {
+                    continue;
+                }
+
+                if exceeds_tolerance(target_value, tvl) {
+                    deficit_list.push(HoldingDeficit {
+                        denom,
+                        usd_remaining: target_value,
+                    });
+                }
+                continue;
+            }
             _ => continue,
         };
 
-        let amount_decimal = Decimal256::from_atomics(*amount, 0)
+        let amount_decimal = Decimal256::from_atomics(amount, 0)
             .map_err(|e| anyhow!("failed to convert holdings to decimal: {e}"))?;
         let current_value = price
             .checked_mul(amount_decimal)
             .map_err(|e| anyhow!("overflow while evaluating holdings value: {e}"))?;
-        let target_value = allocation_targets
-            .get(denom)
-            .copied()
-            .unwrap_or_else(Decimal256::zero);
 
-        match current_value.cmp(&target_value) {
-            Ordering::Greater => {
-                let delta = current_value
-                    .checked_sub(target_value)
-                    .map_err(|e| anyhow!("overflow while computing surplus: {e}"))?;
+        if current_value > target_value {
+            let delta = current_value
+                .checked_sub(target_value)
+                .map_err(|e| anyhow!("overflow while computing surplus: {e}"))?;
+
+            if exceeds_tolerance(delta, tvl) {
                 surplus_list.push(HoldingSurplus {
-                    denom: denom.clone(),
-                    amount: *amount,
+                    denom,
+                    amount,
                     price,
-                    usd_surplus: delta,
+                    usd_remaining: delta,
                 });
             }
-            Ordering::Less => {
-                let delta = target_value
-                    .checked_sub(current_value)
-                    .map_err(|e| anyhow!("overflow while computing deficit: {e}"))?;
-                deficit_list.push(HoldingDeficit {
-                    denom: denom.clone(),
-                    usd_deficit: delta,
-                });
-            }
-            Ordering::Equal => {}
-        }
-    }
+        } else if current_value < target_value {
+            let delta = target_value
+                .checked_sub(current_value)
+                .map_err(|e| anyhow!("overflow while computing deficit: {e}"))?;
 
-    for (denom, target_value) in &allocation_targets {
-        if holdings.contains_key(denom) {
-            continue;
-        }
-        if target_value.is_zero() {
-            continue;
-        }
-        if price_map.get(denom).is_some_and(|price| !price.is_zero()) {
-            deficit_list.push(HoldingDeficit {
-                denom: denom.clone(),
-                usd_deficit: *target_value,
-            });
+            if exceeds_tolerance(delta, tvl) {
+                deficit_list.push(HoldingDeficit {
+                    denom,
+                    usd_remaining: delta,
+                });
+            }
         }
     }
 
     let skip_client = SkipAPIClient::new(chain_id);
     let mut swap_routes_vec: Vec<SwapRoute> = Vec::new();
 
-    while !surplus_list.is_empty() && !deficit_list.is_empty() {
-        surplus_list.sort_by(|a, b| b.usd_surplus.cmp(&a.usd_surplus));
-        deficit_list.sort_by(|a, b| b.usd_deficit.cmp(&a.usd_deficit));
+    if !surplus_list.is_empty() && !deficit_list.is_empty() {
+        for deficit in &mut deficit_list {
+            while !deficit.usd_remaining.is_zero() {
+                let mut total_surplus = sum_decimal(surplus_list.iter().map(|s| s.usd_remaining))?;
+                if total_surplus.is_zero() {
+                    break;
+                }
 
-        let mut surplus = surplus_list.remove(0);
-        let mut deficit = deficit_list.remove(0);
+                let mut progressed = false;
 
-        let Some(plan) = build_swap_route(&surplus, &deficit, &skip_client, timestamp).await?
-        else {
-            break;
-        };
+                for surplus in &mut surplus_list {
+                    if surplus.usd_remaining.is_zero() || surplus.amount.is_zero() {
+                        continue;
+                    }
 
-        surplus.usd_surplus = surplus
-            .usd_surplus
-            .checked_sub(plan.usd_used)
-            .map_err(|e| anyhow!("failed to update surplus allocation: {e}"))?;
-        surplus.amount = surplus
-            .amount
-            .checked_sub(plan.amount_in)
-            .map_err(|e| anyhow!("failed to update surplus amount: {e}"))?;
-        deficit.usd_deficit = deficit
-            .usd_deficit
-            .checked_sub(plan.usd_used)
-            .map_err(|e| anyhow!("failed to update deficit allocation: {e}"))?;
+                    if total_surplus.is_zero() {
+                        break;
+                    }
 
-        swap_routes_vec.push(plan.route);
+                    let share = surplus
+                        .usd_remaining
+                        .checked_div(total_surplus)
+                        .map_err(|e| anyhow!("overflow while computing surplus share: {e}"))?;
+                    let mut usd_to_trade =
+                        deficit.usd_remaining.checked_mul(share).map_err(|e| {
+                            anyhow!("overflow while distributing deficit allocation: {e}")
+                        })?;
 
-        if !surplus.usd_surplus.is_zero() && !surplus.amount.is_zero() {
-            surplus_list.push(surplus);
-        }
-        if !deficit.usd_deficit.is_zero() {
-            deficit_list.push(deficit);
+                    usd_to_trade = min_decimal(usd_to_trade, surplus.usd_remaining);
+                    usd_to_trade = min_decimal(usd_to_trade, deficit.usd_remaining);
+
+                    if usd_to_trade.is_zero() {
+                        continue;
+                    }
+
+                    let Some(plan) =
+                        build_swap_route(surplus, deficit, usd_to_trade, &skip_client, timestamp)
+                            .await?
+                    else {
+                        continue;
+                    };
+
+                    if plan.usd_used.is_zero() {
+                        continue;
+                    }
+
+                    surplus.usd_remaining = surplus
+                        .usd_remaining
+                        .checked_sub(plan.usd_used)
+                        .map_err(|e| anyhow!("failed to update surplus allocation: {e}"))?;
+                    surplus.amount = surplus
+                        .amount
+                        .checked_sub(plan.amount_in)
+                        .map_err(|e| anyhow!("failed to update surplus amount: {e}"))?;
+                    deficit.usd_remaining = deficit
+                        .usd_remaining
+                        .checked_sub(plan.usd_used)
+                        .map_err(|e| anyhow!("failed to update deficit allocation: {e}"))?;
+                    total_surplus = total_surplus
+                        .checked_sub(plan.usd_used)
+                        .map_err(|e| anyhow!("failed to update total surplus tracker: {e}"))?;
+
+                    swap_routes_vec.push(plan.route);
+                    progressed = true;
+
+                    if deficit.usd_remaining.is_zero() {
+                        break;
+                    }
+                }
+
+                if !progressed {
+                    break;
+                }
+            }
         }
     }
 
@@ -181,12 +233,12 @@ struct HoldingSurplus {
     denom: String,
     amount: Uint256,
     price: Decimal256,
-    usd_surplus: Decimal256,
+    usd_remaining: Decimal256,
 }
 
 struct HoldingDeficit {
     denom: String,
-    usd_deficit: Decimal256,
+    usd_remaining: Decimal256,
 }
 
 struct SwapPlan {
@@ -198,10 +250,11 @@ struct SwapPlan {
 async fn build_swap_route(
     surplus: &HoldingSurplus,
     deficit: &HoldingDeficit,
+    usd_to_trade: Decimal256,
     skip_client: &SkipAPIClient,
     timestamp: u64,
 ) -> Result<Option<SwapPlan>> {
-    if surplus.usd_surplus.is_zero() || deficit.usd_deficit.is_zero() {
+    if usd_to_trade.is_zero() {
         return Ok(None);
     }
 
@@ -212,8 +265,7 @@ async fn build_swap_route(
         .checked_mul(surplus_amount_decimal)
         .map_err(|e| anyhow!("overflow calculating available sell usd: {e}"))?;
 
-    let mut trade_usd = min_decimal(surplus.usd_surplus, deficit.usd_deficit);
-    trade_usd = min_decimal(trade_usd, available_sell_usd);
+    let trade_usd = min_decimal(usd_to_trade, available_sell_usd);
 
     if trade_usd.is_zero() {
         return Ok(None);
@@ -243,6 +295,17 @@ async fn build_swap_route(
     let amount_in = Uint128::from_str(&trade_amount_uint256.to_string())
         .map_err(|e| anyhow!("amount in exceeds supported range: {e}"))?;
     if amount_in.is_zero() {
+        return Ok(None);
+    }
+
+    let actual_amount_decimal = Decimal256::from_atomics(trade_amount_uint256, 0)
+        .map_err(|e| anyhow!("failed to convert trade amount to decimal: {e}"))?;
+    let usd_used = surplus
+        .price
+        .checked_mul(actual_amount_decimal)
+        .map_err(|e| anyhow!("overflow calculating usd used: {e}"))?;
+
+    if usd_used.is_zero() {
         return Ok(None);
     }
 
@@ -299,7 +362,7 @@ async fn build_swap_route(
 
     Ok(Some(SwapPlan {
         route: swap_route,
-        usd_used: trade_usd,
+        usd_used,
         amount_in: trade_amount_uint256,
     }))
 }
@@ -310,6 +373,33 @@ fn min_decimal(left: Decimal256, right: Decimal256) -> Decimal256 {
     } else {
         right
     }
+}
+
+fn sum_decimal<I>(mut iter: I) -> Result<Decimal256>
+where
+    I: Iterator<Item = Decimal256>,
+{
+    iter.try_fold(Decimal256::zero(), |acc, value| acc.checked_add(value))
+        .map_err(|e| anyhow!("overflow while summing decimal values: {e}"))
+}
+
+fn exceeds_tolerance(delta: Decimal256, tvl: Decimal256) -> bool {
+    if delta.is_zero() {
+        return false;
+    }
+
+    if tvl.is_zero() {
+        return true;
+    }
+
+    match delta.checked_div(tvl) {
+        Ok(ratio) => ratio > rebalance_tolerance(),
+        Err(_) => true,
+    }
+}
+
+fn rebalance_tolerance() -> Decimal256 {
+    Decimal256::from_ratio(5u128, 1000u128)
 }
 
 fn price_lookup_assets(price_map: &HashMap<String, Decimal256>) -> Vec<(String, String, u8)> {
