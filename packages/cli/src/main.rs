@@ -335,7 +335,10 @@ async fn main() -> anyhow::Result<()> {
                 };
 
             let submit = wavs_types::Submit::Aggregator {
-                url: aggregator_url.to_string(),
+                url: aggregator_url
+                    .to_string()
+                    .trim_end_matches(|c| c == '/' || c == '\\')
+                    .to_string(),
                 component: Box::new(aggregator_component),
                 signature_kind: wavs_types::SignatureKind::evm_default(),
             };
