@@ -28,7 +28,6 @@ tasks:
     deps:
       [
         all-upload-contracts,
-        all-upload-components,
         all-log-skip-upload-contracts,
         all-log-skip-upload-components,
       ]
@@ -48,6 +47,7 @@ tasks:
       - task: set-service
 
   set-service:
+    deps: [all-upload-components]
     cmds:
       - task: service-upload
         vars:

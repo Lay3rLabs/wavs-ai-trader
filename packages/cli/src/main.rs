@@ -403,14 +403,18 @@ async fn main() -> anyhow::Result<()> {
                 },
             };
 
-            reqwest::Client::new()
-                .post(aggregator_url.join("services").unwrap())
+            let res = reqwest::Client::new()
+                .post(aggregator_url.join("services")?)
                 .json(&req)
                 .send()
-                .await
-                .unwrap()
-                .error_for_status()
-                .unwrap();
+                .await?;
+
+            if let Err(err) = res.error_for_status_ref() {
+                let status = err.status();
+                let text = res.text().await.unwrap_or_default();
+                eprintln!("Request error: {:?}\nBody: {}", status, text);
+                return Err(err.into());
+            }
 
             Ok(())
         }
@@ -426,14 +430,18 @@ async fn main() -> anyhow::Result<()> {
                 },
             };
 
-            reqwest::Client::new()
-                .post(wavs_url.join("services").unwrap())
+            let res = reqwest::Client::new()
+                .post(wavs_url.join("services")?)
                 .json(&req)
                 .send()
-                .await
-                .unwrap()
-                .error_for_status()
-                .unwrap();
+                .await?;
+
+            if let Err(err) = res.error_for_status_ref() {
+                let status = err.status();
+                let text = res.text().await.unwrap_or_default();
+                eprintln!("Request error: {:?}\nBody: {}", status, text);
+                return Err(err.into());
+            }
 
             Ok(())
         }
