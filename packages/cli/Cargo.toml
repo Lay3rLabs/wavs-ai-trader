@@ -21,5 +21,7 @@ wavs-types = { workspace = true }
 rustls = { workspace = true }
 tracing = { workspace = true }
 layer-climb = { workspace = true }
+layer-climb-address = { workspace = true }
+cosmwasm-std = { workspace = true }
 reqwest = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }

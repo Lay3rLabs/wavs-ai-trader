@@ -46,7 +46,7 @@ vars:
       fi
   HEALTH_CHECK_TIMEOUT: 5 # seconds to wait for service health checks
   COSMWASM_OPTIMIZER_IMAGE: 'cosmwasm/optimizer{{if eq .ARCH "arm64"}}-arm64{{end}}:0.17.0'
-  WAVS_DOCKER_IMAGE: 'ghcr.io/lay3rlabs/wavs:2.0.0-alpha.7{{if eq .ARCH "arm64"}}-arm64{{end}}'
+  WAVS_DOCKER_IMAGE: 'ghcr.io/lay3rlabs/wavs:5b298b5{{if eq .ARCH "arm64"}}-arm64{{end}}'
   WAVS_CW_MIDDLEWARE_DOCKER_IMAGE: 'ghcr.io/lay3rlabs/cw-middleware:0.2.0-alpha.7{{if eq .ARCH "arm64"}}-arm64{{end}}'
   JAEGER_DOCKER_IMAGE: "jaegertracing/jaeger:2.5.0"
   PROMETHEUS_DOCKER_IMAGE: "prom/prometheus:v3.3.0"

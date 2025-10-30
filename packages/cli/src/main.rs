@@ -4,7 +4,9 @@ mod ipfs;
 mod output;
 
 use ai_portfolio_utils::{addresses::skip_swap_entry_point, faucet, tracing::tracing_init};
+use cosmwasm_std::Uint256;
 use layer_climb::prelude::CosmosAddr;
+use layer_climb_address::EvmAddr;
 use vault::InstantiateMsg;
 use wavs_types::ServiceManager;
 
@@ -337,7 +339,7 @@ async fn main() -> anyhow::Result<()> {
             let submit = wavs_types::Submit::Aggregator {
                 url: aggregator_url
                     .to_string()
-                    .trim_end_matches(|c| c == '/' || c == '\\')
+                    .trim_end_matches(['/', '\\'])
                     .to_string(),
                 component: Box::new(aggregator_component),
                 signature_kind: wavs_types::SignatureKind::evm_default(),
@@ -512,6 +514,59 @@ async fn main() -> anyhow::Result<()> {
                     kind: crate::command::ContractKind::Vault,
                     address: contract_address,
                     new_code_id,
+                    tx_hash: tx_resp.txhash,
+                })
+                .await?;
+            Ok(())
+        }
+        CliCommand::SetSigningKey {
+            service_manager_address,
+            operator,
+            signing_key,
+            weight,
+            args,
+        } => {
+            let client = ctx.signing_client().await?;
+            let service_manager_addr = ctx.parse_address(&service_manager_address).await?;
+
+            // Parse EVM addresses
+            let operator_evm: EvmAddr = operator.parse().map_err(|e| {
+                anyhow::anyhow!("Invalid operator EVM address '{}': {}", operator, e)
+            })?;
+            let signing_key_evm: EvmAddr = signing_key.parse().map_err(|e| {
+                anyhow::anyhow!("Invalid signing_key EVM address '{}': {}", signing_key, e)
+            })?;
+
+            // Parse weight as Uint256
+            let weight_uint: Uint256 = weight
+                .parse()
+                .map_err(|e| anyhow::anyhow!("Invalid weight '{}': {}", weight, e))?;
+
+            // Create the SetSigningKey message
+            // Note: Since we don't have the exact service manager contract interface,
+            // we'll create a generic execute message. The actual message structure
+            // would depend on the service manager contract's ABI
+            let set_signing_key_msg = serde_json::json!({
+                "set_signing_key": {
+                    "operator": operator_evm.to_string(),
+                    "signing_key": signing_key_evm.to_string(),
+                    "weight": weight_uint.to_string()
+                }
+            });
+
+            let tx_resp = client
+                .contract_execute(&service_manager_addr, &set_signing_key_msg, vec![], None)
+                .await?;
+
+            println!(
+                "Set signing key for operator {} with signing key {} and weight {} on service manager contract {} with tx hash: {}",
+                operator_evm, signing_key_evm, weight_uint, service_manager_address, tx_resp.txhash
+            );
+
+            args.output()
+                .write(OutputData::ContractExecute {
+                    kind: crate::command::ContractKind::Vault, // Using Vault as placeholder
+                    address: service_manager_address,
                     tx_hash: tx_resp.txhash,
                 })
                 .await?;

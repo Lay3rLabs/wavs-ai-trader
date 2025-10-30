@@ -176,6 +176,26 @@ tasks:
       - echo "🚀 Calling manual trigger on {{.CONTRACT_ADDRESS}}..."
       - cd packages/cli && cargo run manual-trigger --contract-address={{.CONTRACT_ADDRESS}}
 
+  set-signing-key-*:
+    deps: [assert-account-exists]
+    requires:
+      vars: [WEIGHT]
+    vars:
+      OPERATOR:
+        sh: cd "{{.REPO_ROOT}}" && task backend:get-wavs-operator-address-{{index .MATCH 0}}
+      SIGNING_KEY:
+        sh: cd "{{.REPO_ROOT}}" && task backend:get-wavs-operator-signing-key-{{index .MATCH 0}}
+      SERVICE_MANAGER_ADDRESS:
+        sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/middleware.json" | jq -r '.service_manager_address'
+    cmds:
+      - echo "🚀 Setting signing key on service manager {{.SERVICE_MANAGER_ADDRESS}}..."
+      - |
+        cd packages/cli && cargo run set-signing-key \
+          --service-manager-address={{.SERVICE_MANAGER_ADDRESS}} \
+          --operator={{.OPERATOR}} \
+          --signing-key={{.SIGNING_KEY}} \
+          --weight={{.WEIGHT}}
+
   ###################################################################
   ######################## FAUCET   #################################
   ###################################################################

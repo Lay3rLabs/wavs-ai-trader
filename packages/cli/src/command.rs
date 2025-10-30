@@ -138,6 +138,26 @@ pub enum CliCommand {
         #[clap(flatten)]
         args: CliArgs,
     },
+    SetSigningKey {
+        /// The address of the service manager contract
+        #[arg(long)]
+        service_manager_address: String,
+
+        /// The operator address (EVM address)
+        #[arg(long)]
+        operator: String,
+
+        /// The signing key address (EVM address)
+        #[arg(long)]
+        signing_key: String,
+
+        /// The weight for the signing key
+        #[arg(long)]
+        weight: String,
+
+        #[clap(flatten)]
+        args: CliArgs,
+    },
 }
 
 // common args for several commands

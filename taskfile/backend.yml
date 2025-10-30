@@ -253,6 +253,23 @@ tasks:
     cmds:
       - echo "${{.ENV_VAR_NAME}}"
 
+  get-wavs-operator-address-*:
+    vars:
+      WAVS_INSTANCE: "{{index .MATCH 0}}"
+      MNEMONIC:
+        sh: task backend:get-wavs-operator-mnemonic-{{.WAVS_INSTANCE}}
+    cmds:
+      - cast wallet address --mnemonic "{{.MNEMONIC}}"
+
+  # Shortcut here for getting signing key as opposed to querying WAVS
+  get-wavs-operator-signing-key-*:
+    vars:
+      WAVS_INSTANCE: "{{index .MATCH 0}}"
+      MNEMONIC:
+        sh: task backend:get-wavs-operator-mnemonic-{{.WAVS_INSTANCE}}
+    cmds:
+      - cast wallet address --mnemonic "{{.MNEMONIC}}" --mnemonic-index 1
+
   get-wavs-aggregator-cosmos-credential:
     desc: "Get the WAVS submission credential for the aggregator"
     vars:
