@@ -125,7 +125,7 @@ tasks:
       vars: [CONTRACT, FILENAME]
     cmds:
       - echo "🚀 Uploading contract {{.CONTRACT}}..."
-      - cd packages/cli && cargo run -- upload-contract --kind {{.CONTRACT}} --output-filename={{.FILENAME}}
+      - cd packages/cli && cargo run upload-contract --kind {{.CONTRACT}} --output-filename={{.FILENAME}}
 
   contract-instantiate-vault:
     deps: [assert-account-exists]
@@ -135,7 +135,7 @@ tasks:
       DENOM_STRING: '{{.INITIAL_WHITELISTED_DENOMS | join ","}}'
     cmds:
       - echo "🚀 Instantiating Vault contract..."
-      - cd packages/cli && cargo run -- instantiate-vault --output-filename={{.FILENAME}} --code-id={{.CODE_ID}} --initial-whitelisted-denoms {{.DENOM_STRING}}
+      - cd packages/cli && cargo run instantiate-vault --output-filename={{.FILENAME}} --code-id={{.CODE_ID}} --initial-whitelisted-denoms {{.DENOM_STRING}}
 
   ###################################################################
   ######################## FAUCET   #################################
@@ -162,11 +162,11 @@ tasks:
     env:
       CLI_MNEMONIC: "{{.MNEMONIC_VALUE}}"
     cmds:
-      - cd packages/cli && cargo run -- faucet-tap
+      - cd packages/cli && cargo run faucet-tap
 
   assert-account-exists:
     cmds:
-      - cd packages/cli && cargo run -- assert-account-exists
+      - cd packages/cli && cargo run assert-account-exists
 
   ###################################################################
   ######################## COMPONENTS ###############################
@@ -180,7 +180,7 @@ tasks:
       IPFS_GATEWAY_URL: "http://127.0.0.1:{{.IPFS_GATEWAY_PORT}}"
     cmds:
       - echo "🚀 Uploading component {{.COMPONENT}} to IPFS..."
-      - cd packages/cli && cargo run -- upload-component --kind {{.COMPONENT}} --output-filename={{.FILENAME}} --ipfs-api-url {{.IPFS_API_URL}} --ipfs-gateway-url {{.IPFS_GATEWAY_URL}}
+      - cd packages/cli && cargo run upload-component --kind {{.COMPONENT}} --output-filename={{.FILENAME}} --ipfs-api-url {{.IPFS_API_URL}} --ipfs-gateway-url {{.IPFS_GATEWAY_URL}}
 
   ###################################################################
   ######################## MIDDLEWARE ###############################
@@ -273,7 +273,7 @@ tasks:
     cmds:
       - echo "🚀 Uploading Service JSON to IPFS ..."
       - >
-        cd packages/cli && cargo run -- upload-service
+        cd packages/cli && cargo run upload-service
         --output-filename {{.FILENAME}}
         --ipfs-api-url {{.IPFS_API_URL}}
         --ipfs-gateway-url {{.IPFS_GATEWAY_URL}}
@@ -293,7 +293,7 @@ tasks:
     cmds:
       - echo "🚀 Registering service on aggregator..."
       - >
-        cd packages/cli && cargo run -- aggregator-register-service
+        cd packages/cli && cargo run aggregator-register-service
         --aggregator-url {{.AGGREGATOR_URL}}
         --service-manager-address "{{.ADDR}}"
 
@@ -315,6 +315,6 @@ tasks:
     cmds:
       - echo "🚀 Adding service to operator {{.WAVS_INSTANCE}}..."
       - >
-        cd packages/cli && cargo run -- operator-add-service
+        cd packages/cli && cargo run operator-add-service
         --wavs-url {{.WAVS_URL}}
         --service-manager-address "{{.ADDR}}"

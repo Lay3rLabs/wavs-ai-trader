@@ -5,6 +5,7 @@ mod output;
 
 use ai_portfolio_utils::{addresses::skip_swap_entry_point, faucet, tracing::tracing_init};
 use vault::InstantiateMsg;
+use wavs_types::ServiceManager;
 
 use crate::{command::CliCommand, context::CliContext, ipfs::IpfsFile, output::OutputData};
 
@@ -395,41 +396,22 @@ async fn main() -> anyhow::Result<()> {
             aggregator_url,
             args,
         } => {
-            println!(
-                "Registering service manager {} with aggregator at {}",
-                service_manager_address, aggregator_url
-            );
+            let req = wavs_types::aggregator::RegisterServiceRequest {
+                service_manager: ServiceManager::Cosmos {
+                    chain: args.chain,
+                    address: service_manager_address.parse().unwrap(),
+                },
+            };
 
-            // Validate the service manager address
-            let validated_address = ctx.parse_address(&service_manager_address).await?;
-
-            // Prepare registration request
-            let registration_payload = serde_json::json!({
-                "service_manager_address": validated_address.to_string(),
-                "chain": args.chain.id.as_str(),
-                "timestamp": chrono::Utc::now().to_rfc3339()
-            });
-
-            // Send registration request to aggregator
-            let client = reqwest::Client::new();
-            let response = client
-                .post(format!("{}/api/v1/services/register", aggregator_url))
-                .header("Content-Type", "application/json")
-                .json(&registration_payload)
+            reqwest::Client::new()
+                .post(aggregator_url.join("services").unwrap())
+                .json(&req)
                 .send()
-                .await?;
+                .await
+                .unwrap()
+                .error_for_status()
+                .unwrap();
 
-            if response.status().is_success() {
-                let response_json: serde_json::Value = response.json().await?;
-                println!("Service registered successfully!");
-                println!(
-                    "Registration response: {}",
-                    serde_json::to_string_pretty(&response_json)?
-                );
-            } else {
-                let error_text = response.text().await?;
-                return Err(anyhow::anyhow!("Registration failed: {}", error_text));
-            }
             Ok(())
         }
         CliCommand::OperatorAddService {
@@ -437,45 +419,22 @@ async fn main() -> anyhow::Result<()> {
             wavs_url,
             args,
         } => {
-            println!(
-                "Adding service manager {} to WAVS operator at {}",
-                service_manager_address, wavs_url
-            );
+            let req = wavs_types::AddServiceRequest {
+                service_manager: ServiceManager::Cosmos {
+                    chain: args.chain,
+                    address: service_manager_address.parse().unwrap(),
+                },
+            };
 
-            // Validate the service manager address
-            let validated_address = ctx.parse_address(&service_manager_address).await?;
-
-            // Prepare service addition request for WAVS operator
-            let service_config = serde_json::json!({
-                "service_manager_address": validated_address.to_string(),
-                "chain": args.chain.id.as_str(),
-                "enabled": true,
-                "config": {
-                    "max_gas_limit": 500000,
-                    "fee_granter": validated_address.to_string()
-                }
-            });
-
-            // Send service addition request to WAVS operator
-            let client = reqwest::Client::new();
-            let response = client
-                .post(format!("{}/api/v1/services", wavs_url))
-                .header("Content-Type", "application/json")
-                .json(&service_config)
+            reqwest::Client::new()
+                .post(wavs_url.join("services").unwrap())
+                .json(&req)
                 .send()
-                .await?;
+                .await
+                .unwrap()
+                .error_for_status()
+                .unwrap();
 
-            if response.status().is_success() {
-                let response_json: serde_json::Value = response.json().await?;
-                println!("Service added to operator successfully!");
-                println!(
-                    "Service configuration: {}",
-                    serde_json::to_string_pretty(&response_json)?
-                );
-            } else {
-                let error_text = response.text().await?;
-                return Err(anyhow::anyhow!("Service addition failed: {}", error_text));
-            }
             Ok(())
         }
     }
