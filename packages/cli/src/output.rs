@@ -51,6 +51,11 @@ pub enum OutputData {
         new_code_id: u64,
         tx_hash: String,
     },
+    ContractExecute {
+        kind: ContractKind,
+        address: String,
+        tx_hash: String,
+    },
     ComponentUpload {
         kind: ComponentKind,
 

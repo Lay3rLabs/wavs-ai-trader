@@ -162,6 +162,15 @@ tasks:
       - echo "🚀 Migrating Vault contract at {{.CONTRACT_ADDRESS}} to code ID {{.NEW_CODE_ID}}..."
       - cd packages/cli && cargo run migrate-vault --contract-address={{.CONTRACT_ADDRESS}} --new-code-id={{.NEW_CODE_ID}}
 
+  contract-manual-trigger:
+    deps: [assert-account-exists]
+    vars:
+      CONTRACT_ADDRESS:
+        sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/vault.json" | jq -r '.address'
+    cmds:
+      - echo "🚀 Calling manual trigger on {{.CONTRACT_ADDRESS}}..."
+      - cd packages/cli && cargo run manual-trigger --contract-address={{.CONTRACT_ADDRESS}}
+
   ###################################################################
   ######################## FAUCET   #################################
   ###################################################################

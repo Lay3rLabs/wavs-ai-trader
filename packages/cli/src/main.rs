@@ -3,7 +3,9 @@ mod context;
 mod ipfs;
 mod output;
 
-use ai_portfolio_utils::{addresses::skip_swap_entry_point, faucet, tracing::tracing_init};
+use ai_portfolio_utils::{
+    addresses::skip_swap_entry_point, client::vault::VaultExecutor, faucet, tracing::tracing_init,
+};
 use layer_climb::prelude::CosmosAddr;
 use vault::InstantiateMsg;
 use wavs_types::ServiceManager;
@@ -456,6 +458,30 @@ async fn main() -> anyhow::Result<()> {
                 return Err(err.into());
             }
 
+            Ok(())
+        }
+        CliCommand::ManualTrigger {
+            contract_address,
+            args,
+        } => {
+            let client = ctx.signing_client().await?;
+
+            let contract_addr = ctx.parse_address(&contract_address).await?;
+
+            let vault_executor = VaultExecutor::new(client.into(), contract_addr.into());
+
+            let tx_resp = vault_executor
+                .manual_trigger()
+                .await?
+                .unchecked_into_tx_response();
+
+            args.output()
+                .write(OutputData::ContractExecute {
+                    kind: crate::command::ContractKind::Vault,
+                    address: contract_address,
+                    tx_hash: tx_resp.txhash,
+                })
+                .await?;
             Ok(())
         }
         CliCommand::MigrateVault {

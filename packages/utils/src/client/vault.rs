@@ -323,4 +323,9 @@ impl VaultExecutor {
             }
         }
     }
+
+    pub async fn manual_trigger(&self) -> Result<AnyTxResponse> {
+        self.exec(&ExecuteMsg::Vault(VaultExecuteMsg::ManualTrigger {}), &[])
+            .await
+    }
 }

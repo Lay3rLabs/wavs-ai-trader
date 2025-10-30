@@ -31,6 +31,7 @@ impl CliContext {
             CliCommand::AggregatorRegisterService { args, .. } => args,
             CliCommand::OperatorAddService { args, .. } => args,
             CliCommand::MigrateVault { args, .. } => args,
+            CliCommand::ManualTrigger { args, .. } => args,
         }
     }
 
