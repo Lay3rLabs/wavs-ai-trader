@@ -1,5 +1,5 @@
 [default]
-log_level = ["debug"]
+log_level = ["debug", "wavs=debug"]
 
 # Those configs are global and shared between wavs and aggregator
 jaeger = "http://localhost:4317"

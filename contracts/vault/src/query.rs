@@ -89,10 +89,30 @@ pub fn price(deps: Deps, denom: String) -> StdResult<PriceInfo> {
 }
 
 pub fn prices(deps: Deps) -> StdResult<Vec<PriceInfo>> {
-    PRICES
+    // Get all whitelisted denoms
+    let whitelisted_denoms: Vec<String> = WHITELISTED_DENOMS
+        .keys(deps.storage, None, None, Order::Ascending)
+        .collect::<StdResult<Vec<_>>>()?;
+
+    // Get all existing prices
+    let existing_prices: std::collections::HashMap<String, StoredPriceInfo> = PRICES
         .range(deps.storage, None, None, Order::Ascending)
-        .map(|item| {
-            let (denom, stored) = item?;
+        .collect::<StdResult<Vec<_>>>()?
+        .into_iter()
+        .collect();
+
+    // Create price info for all whitelisted denoms
+    whitelisted_denoms
+        .into_iter()
+        .map(|denom| {
+            let stored = existing_prices
+                .get(&denom)
+                .cloned()
+                .unwrap_or(StoredPriceInfo {
+                    price_usd: Decimal256::zero(),
+                    decimals: 0,
+                });
+
             Ok(PriceInfo {
                 denom,
                 price_usd: stored.price_usd,

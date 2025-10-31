@@ -19,11 +19,18 @@ impl SkipAPIClient {
     pub fn new(chain_id: String) -> Self {
         SkipAPIClient {
             chain_id: chain_id.clone(),
-            swap_venues: vec![SwapVenue {
-                name: "neutron-astroport".to_string(),
-                chain_id,
-                logo_uri: None,
-            }],
+            swap_venues: vec![
+                SwapVenue {
+                    name: "neutron-astroport".to_string(),
+                    chain_id: chain_id.clone(),
+                    logo_uri: None,
+                },
+                SwapVenue {
+                    name: "neutron-duality".to_string(),
+                    chain_id,
+                    logo_uri: None,
+                },
+            ],
         }
     }
 
@@ -52,11 +59,11 @@ impl SkipAPIClient {
         };
 
         host::log(
-            host::LogLevel::Debug,
+            host::LogLevel::Info,
             &format!("Making Skip API request to: {}", ROUTE),
         );
         host::log(
-            host::LogLevel::Debug,
+            host::LogLevel::Info,
             &format!("Request body: {}", serde_json::to_string(&request)?),
         );
 

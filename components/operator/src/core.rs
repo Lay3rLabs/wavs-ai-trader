@@ -33,7 +33,7 @@ pub async fn generate_payload(
     trade_strategy.validate()?;
 
     host::log(
-        host::LogLevel::Debug,
+        host::LogLevel::Info,
         "Trade strategy validated successfully",
     );
 
@@ -96,12 +96,12 @@ pub async fn generate_payload(
         );
         let fresh_prices = coingecko_client.query_prices(&asset_queries, "usd").await?;
         host::log(
-            host::LogLevel::Debug,
+            host::LogLevel::Info,
             &format!("Retrieved {} fresh prices", fresh_prices.len()),
         );
         apply_fresh_prices(&mut price_map, fresh_prices);
     } else {
-        host::log(host::LogLevel::Debug, "No external price queries needed");
+        host::log(host::LogLevel::Info, "No external price queries needed");
     }
 
     let holdings: HashMap<String, Uint256> = funds
@@ -113,7 +113,7 @@ pub async fn generate_payload(
     denominators.extend(allocation_targets.keys().cloned());
 
     host::log(
-        host::LogLevel::Debug,
+        host::LogLevel::Info,
         &format!("Analyzing {} assets for rebalancing", denominators.len()),
     );
 

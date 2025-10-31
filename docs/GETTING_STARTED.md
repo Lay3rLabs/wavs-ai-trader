@@ -56,10 +56,8 @@ The system is currently configured for:
 The vault supports these whitelisted assets for deposits:
 - **NTRN** (`untrn`) - Neutron native token
 - **USDC** (`ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81`) - USD Coin
-- **BTC** (`ibc/0E293A762DC9A6439DB60E6D234B5AF446962E27CA3AB44D0590603DFF6968E`) - Bitcoin
 - **ATOM** (`ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9`) - Cosmos
 - **DYDX** (`ibc/2CB87BCE0937B1D1DFCEE79BE4501AAF3C265E923509AEAC410AD85D27F35130`) - dYdX
-- **wstETH** (`ibc/4D04085167777659C11784A356D6B0D13D5C7F0CE77F7DB1152FE03A2DE2CBF2`) - Wrapped staked ETH
 
 Only these whitelisted assets can be deposited into the vault. The whitelist can be updated by vault administrators.
 

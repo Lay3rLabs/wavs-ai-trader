@@ -54,7 +54,7 @@ impl Guest for Component {
         }?;
         let chain = host::config_var("chain").ok_or("Could not get chain config var")?;
         host::log(
-            host::LogLevel::Debug,
+            host::LogLevel::Info,
             &format!("Chain configured: {}", chain),
         );
 
@@ -64,7 +64,7 @@ impl Guest for Component {
         )
         .map_err(|e| format!("Could not parse address: {e}"))?;
         host::log(
-            host::LogLevel::Debug,
+            host::LogLevel::Info,
             &format!("Vault address configured: {}", address),
         );
 

@@ -178,6 +178,22 @@ pub enum CliCommand {
         #[clap(flatten)]
         args: CliArgs,
     },
+    UpdateWhitelist {
+        /// The address of the vault contract
+        #[arg(long)]
+        contract_address: String,
+
+        /// Tokens to add to the whitelist (comma-separated)
+        #[arg(long, value_delimiter = ',')]
+        to_add: Option<Vec<String>>,
+
+        /// Tokens to remove from the whitelist (comma-separated)
+        #[arg(long, value_delimiter = ',')]
+        to_remove: Option<Vec<String>>,
+
+        #[clap(flatten)]
+        args: CliArgs,
+    },
 }
 
 // common args for several commands

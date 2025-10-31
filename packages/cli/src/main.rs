@@ -628,5 +628,52 @@ async fn main() -> anyhow::Result<()> {
                 .await?;
             Ok(())
         }
+        CliCommand::UpdateWhitelist {
+            contract_address,
+            to_add,
+            to_remove,
+            args,
+        } => {
+            let client = ctx.signing_client().await?;
+            let contract_addr = ctx.parse_address(&contract_address).await?;
+
+            // Validate that at least one operation is specified
+            if to_add.is_none() && to_remove.is_none() {
+                return Err(anyhow::anyhow!(
+                    "At least one of --to-add or --to-remove must be specified"
+                ));
+            }
+
+            let update_whitelist_msg =
+                vault::ExecuteMsg::Vault(vault::VaultExecuteMsg::UpdateWhitelist {
+                    to_add: to_add.clone(),
+                    to_remove: to_remove.clone(),
+                });
+
+            let tx_resp = client
+                .contract_execute(&contract_addr, &update_whitelist_msg, vec![], None)
+                .await?;
+
+            println!(
+                "Updated whitelist on vault contract {} with tx hash: {}",
+                contract_address, tx_resp.txhash
+            );
+
+            if let Some(ref added) = to_add {
+                println!("Tokens added to whitelist: {}", added.join(", "));
+            }
+            if let Some(ref removed) = to_remove {
+                println!("Tokens removed from whitelist: {}", removed.join(", "));
+            }
+
+            args.output()
+                .write(OutputData::ContractExecute {
+                    kind: crate::command::ContractKind::Vault,
+                    address: contract_address,
+                    tx_hash: tx_resp.txhash,
+                })
+                .await?;
+            Ok(())
+        }
     }
 }

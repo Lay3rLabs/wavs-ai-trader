@@ -34,6 +34,7 @@ impl CliContext {
             CliCommand::ManualTrigger { args, .. } => args,
             CliCommand::SetSigningKey { args, .. } => args,
             CliCommand::SetOperatorDetails { args, .. } => args,
+            CliCommand::UpdateWhitelist { args, .. } => args,
         }
     }
 

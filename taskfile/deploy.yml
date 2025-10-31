@@ -17,7 +17,6 @@ vars:
       "ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81",
       "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9",
       "ibc/2CB87BCE0937B1D1DFCEE79BE4501AAF3C265E923509AEAC410AD85D27F35130",
-      "ibc/4D04085167777659C11784A356D6B0D13D5C7F0CE77F7DB1152FE03A2DE2CBF2",
     ]
 
 tasks:
@@ -176,6 +175,19 @@ tasks:
     cmds:
       - echo "🚀 Calling manual trigger on {{.CONTRACT_ADDRESS}}..."
       - cd packages/cli && cargo run manual-trigger --contract-address={{.CONTRACT_ADDRESS}}
+
+  contract-update-whitelist:
+    deps: [assert-account-exists]
+    vars:
+      CONTRACT_ADDRESS:
+        sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/vault.json" | jq -r '.address'
+    cmds:
+      - echo "🚀 Updating whitelist on vault contract {{.CONTRACT_ADDRESS}}..."
+      - |
+        cd packages/cli && cargo run update-whitelist \
+          --contract-address={{.CONTRACT_ADDRESS}} \
+          {{if .TO_ADD}}--to-add {{.TO_ADD}}{{end}} \
+          {{if .TO_REMOVE}}--to-remove {{.TO_REMOVE}}{{end}}
 
   set-signing-key-*:
     deps: [assert-account-exists]
@@ -337,7 +349,7 @@ tasks:
       IPFS_GATEWAY_URL: "http://127.0.0.1:{{.IPFS_GATEWAY_PORT}}"
       AGGREGATOR_URL: "http://127.0.0.1:{{.WAVS_AGGREGATOR_PORT}}"
       SERVICE_CRON_SCHEDULE: "0 0/30 * * * ? *"
-      SERVICE_TRADE_STRATEGY: '{\"Fixed\":{\"{{index .INITIAL_WHITELISTED_DENOMS 0}}\":\"0.5\",\"{{index .INITIAL_WHITELISTED_DENOMS 1}}\":\"0.5\"}}'
+      SERVICE_TRADE_STRATEGY: '{\"Fixed\":{\"{{index .INITIAL_WHITELISTED_DENOMS 0}}\":\"0.25\",\"{{index .INITIAL_WHITELISTED_DENOMS 1}}\":\"0.25\",\"{{index .INITIAL_WHITELISTED_DENOMS 2}}\":\"0.25\",\"{{index .INITIAL_WHITELISTED_DENOMS 3}}\":\"0.25\"}}'
     cmds:
       - echo "🚀 Uploading Service JSON to IPFS ..."
       - >
