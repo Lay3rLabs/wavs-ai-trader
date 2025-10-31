@@ -39,6 +39,10 @@ tasks:
         msg: "Docker is required but not installed"
     # Pull the latest images before starting
     deps: [docker-pull-ipfs]
+    env:
+      COMPOSE_IPFS_DOCKER_IMAGE: "{{.COMPOSE_IPFS_DOCKER_IMAGE}}"
+      COMPOSE_IPFS_GATEWAY_PORT: "{{.COMPOSE_IPFS_GATEWAY_PORT}}"
+      COMPOSE_IPFS_API_PORT: "{{.COMPOSE_IPFS_API_PORT}}"
     cmds:
       - |
         echo "Starting IPFS node with API on port {{.IPFS_API_PORT}} and Gateway on port {{.IPFS_GATEWAY_PORT}}"
@@ -47,11 +51,15 @@ tasks:
 
   docker-pull-ipfs:
     internal: true
+    env:
+      COMPOSE_IPFS_DOCKER_IMAGE: "{{.COMPOSE_IPFS_DOCKER_IMAGE}}"
     cmds:
       - |
         {{.DOCKER_SUDO}} docker compose --file "{{.DOCKER_DIR}}/ipfs.yml" pull
 
   stop-ipfs:
+    env:
+      COMPOSE_IPFS_DOCKER_IMAGE: "{{.COMPOSE_IPFS_DOCKER_IMAGE}}"
     cmds:
       - echo "Stopping IPFS"
       - |
@@ -110,6 +118,8 @@ tasks:
 
   docker-pull-wavs:
     internal: true
+    env:
+      COMPOSE_WAVS_DOCKER_IMAGE: "{{.COMPOSE_WAVS_DOCKER_IMAGE}}"
     cmds:
       - |
         {{.DOCKER_SUDO}} docker compose --file "{{.DOCKER_DIR}}/wavs-aggregator.yml" pull
@@ -202,6 +212,8 @@ tasks:
       WAVS_OPERATOR_MNEMONIC:
         sh: task backend:get-wavs-operator-mnemonic-{{.WAVS_INSTANCE}}
       WAVS_LOG_LEVEL: '{{.RUST_LOG | default "info"}}'
+      WAVS_ENV_COINGECKO_API_KEY: '{{.WAVS_ENV_COINGECKO_API_KEY}}'
+      WAVS_ENV_SKIP_API_KEY: '{{.WAVS_ENV_SKIP_API_KEY}}'
     preconditions:
       - sh: test -n "${WAVS_OPERATOR_MNEMONIC}"
         msg: "WAVS_OPERATOR_MNEMONIC environment variable is not set for instance {{.WAVS_INSTANCE}}"
@@ -214,6 +226,8 @@ tasks:
   stop-wavs-aggregator:
     internal: true
     desc: "Stop WAVS aggregator service"
+    env:
+      COMPOSE_WAVS_DOCKER_IMAGE: "{{.COMPOSE_WAVS_DOCKER_IMAGE}}"
     cmds:
       - echo "Stopping WAVS Aggregator"
       - |
@@ -221,6 +235,8 @@ tasks:
 
   stop-wavs-operators:
     desc: "Stop all WAVS operator instances"
+    env:
+      COMPOSE_WAVS_DOCKER_IMAGE: "{{.COMPOSE_WAVS_DOCKER_IMAGE}}"
     cmds:
       - |
         # Get container names - these are also the project names
@@ -278,6 +294,9 @@ tasks:
 
   docker-pull-wavs-telemetry:
     internal: true
+    env:
+      COMPOSE_JAEGER_DOCKER_IMAGE: "{{.COMPOSE_JAEGER_DOCKER_IMAGE}}"
+      COMPOSE_PROMETHEUS_DOCKER_IMAGE: "{{.COMPOSE_PROMETHEUS_DOCKER_IMAGE}}"
     cmds:
       - |
         {{.DOCKER_SUDO}} docker compose --file "{{.DOCKER_DIR}}/wavs-telemetry.yml" pull
@@ -302,6 +321,8 @@ tasks:
 
   docker-start-wavs-telemetry:
     internal: true
+    env:
+      COLLECTOR_OTLP_ENABLED: '{{.COLLECTOR_OTLP_ENABLED}}'
     cmds:
       - echo "Starting Telemetry"
       - |
