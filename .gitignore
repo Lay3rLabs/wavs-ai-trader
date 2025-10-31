@@ -46,3 +46,4 @@ wit/
 Cargo-component.lock
 .claude/
 .env
+!frontend/.env
