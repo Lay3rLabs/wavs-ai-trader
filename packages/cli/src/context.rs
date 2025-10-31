@@ -35,6 +35,7 @@ impl CliContext {
             CliCommand::SetSigningKey { args, .. } => args,
             CliCommand::SetOperatorDetails { args, .. } => args,
             CliCommand::UpdateWhitelist { args, .. } => args,
+            CliCommand::UpdateServiceManager { args, .. } => args,
         }
     }
 

@@ -97,6 +97,9 @@ pub fn execute(
 
                 Ok(Response::new().add_attributes(ownership.into_attributes()))
             }
+            VaultExecuteMsg::UpdateServiceManager { addr } => {
+                execute::update_service_manager(deps, env, info, addr)
+            }
             VaultExecuteMsg::ManualTrigger {} => execute::manual_trigger(deps, env, info),
         },
         ExecuteMsg::Wavs(msg) => match msg {

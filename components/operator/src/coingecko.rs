@@ -1,4 +1,7 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{
+    collections::{BTreeMap, HashMap},
+    str::FromStr,
+};
 
 use anyhow::{anyhow, Context, Result};
 use cosmwasm_std::Decimal256;
@@ -34,9 +37,9 @@ impl CoinGeckoApiClient {
         &self,
         assets: &[(String, String, u8)],
         vs_currency: &str,
-    ) -> Result<HashMap<String, Decimal256>> {
+    ) -> Result<BTreeMap<String, Decimal256>> {
         if assets.is_empty() {
-            return Ok(HashMap::new());
+            return Ok(BTreeMap::new());
         }
 
         let ids_param = assets
@@ -74,7 +77,7 @@ impl CoinGeckoApiClient {
             "CoinGecko API response received successfully",
         );
 
-        let mut prices = HashMap::new();
+        let mut prices = BTreeMap::new();
         for (denom, id, _decimals) in assets {
             if let Some(vs_map) = payload.0.get(id) {
                 if let Some(price) = vs_map.get(vs_currency) {

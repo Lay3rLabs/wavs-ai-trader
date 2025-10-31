@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     str::FromStr,
 };
 
@@ -58,7 +58,7 @@ pub async fn generate_payload(
         tvl,
     } = vault_state;
 
-    let mut price_map: HashMap<String, AssetPrice> = HashMap::new();
+    let mut price_map: BTreeMap<String, AssetPrice> = BTreeMap::new();
     for price in &prices {
         price_map.insert(
             price.denom.clone(),
@@ -72,7 +72,7 @@ pub async fn generate_payload(
     let allocation_targets = match &trade_strategy {
         TradeStrategy::AI => unimplemented!(),
         TradeStrategy::Fixed(map) => {
-            let mut targets = HashMap::new();
+            let mut targets = BTreeMap::new();
             for (denom, allocation) in map {
                 let target_value = tvl
                     .checked_mul(*allocation)
@@ -104,12 +104,12 @@ pub async fn generate_payload(
         host::log(host::LogLevel::Info, "No external price queries needed");
     }
 
-    let holdings: HashMap<String, Uint256> = funds
+    let holdings: BTreeMap<String, Uint256> = funds
         .iter()
         .map(|coin| (coin.denom.clone(), coin.amount))
         .collect();
 
-    let mut denominators: HashSet<String> = holdings.keys().cloned().collect();
+    let mut denominators: BTreeSet<String> = holdings.keys().cloned().collect();
     denominators.extend(allocation_targets.keys().cloned());
 
     host::log(
@@ -261,10 +261,10 @@ struct SwapPlan {
 }
 
 fn analyze_positions(
-    denominators: HashSet<String>,
-    holdings: &HashMap<String, Uint256>,
-    price_map: &HashMap<String, AssetPrice>,
-    allocation_targets: &HashMap<String, Decimal256>,
+    denominators: BTreeSet<String>,
+    holdings: &BTreeMap<String, Uint256>,
+    price_map: &BTreeMap<String, AssetPrice>,
+    allocation_targets: &BTreeMap<String, Decimal256>,
     tvl: Decimal256,
 ) -> Result<(Vec<HoldingSurplus>, Vec<HoldingDeficit>)> {
     let mut surplus_list: Vec<HoldingSurplus> = Vec::new();
@@ -504,7 +504,7 @@ fn rebalance_tolerance() -> Decimal256 {
     Decimal256::from_ratio(5u128, 1000u128)
 }
 
-fn price_lookup_assets(price_map: &HashMap<String, AssetPrice>) -> Vec<(String, String, u8)> {
+fn price_lookup_assets(price_map: &BTreeMap<String, AssetPrice>) -> Vec<(String, String, u8)> {
     price_map
         .keys()
         .filter_map(|denom| {
@@ -514,8 +514,8 @@ fn price_lookup_assets(price_map: &HashMap<String, AssetPrice>) -> Vec<(String, 
 }
 
 fn apply_fresh_prices(
-    price_map: &mut HashMap<String, AssetPrice>,
-    fresh: HashMap<String, Decimal256>,
+    price_map: &mut BTreeMap<String, AssetPrice>,
+    fresh: BTreeMap<String, Decimal256>,
 ) {
     for (denom, price) in fresh {
         let decimals_override = get_neutron_asset(&denom).map(|(_, d)| d);
@@ -534,7 +534,7 @@ fn apply_fresh_prices(
     }
 }
 
-fn to_price_info(price_map: &HashMap<String, AssetPrice>) -> Vec<PriceInfo> {
+fn to_price_info(price_map: &BTreeMap<String, AssetPrice>) -> Vec<PriceInfo> {
     price_map
         .iter()
         .map(|(denom, asset_price)| PriceInfo {
@@ -549,7 +549,6 @@ fn to_price_info(price_map: &HashMap<String, AssetPrice>) -> Vec<PriceInfo> {
 mod tests {
     use super::*;
     use cosmwasm_std::Uint256;
-    use std::collections::{HashMap, HashSet};
     use std::str::FromStr;
 
     const DENOM_NTRN: &str = "untrn";
@@ -578,10 +577,10 @@ mod tests {
 
     #[test]
     fn analyze_positions_with_display_tvl_has_no_surplus() {
-        let mut holdings = HashMap::new();
+        let mut holdings = BTreeMap::new();
         holdings.insert(DENOM_NTRN.to_string(), Uint256::from(2000u128));
 
-        let mut prices = HashMap::new();
+        let mut prices = BTreeMap::new();
         prices.insert(
             DENOM_NTRN.to_string(),
             asset_price(DENOM_NTRN, "0.04371765"),
@@ -590,12 +589,12 @@ mod tests {
 
         let tvl = decimal("87.4353");
 
-        let mut allocation_targets = HashMap::new();
+        let mut allocation_targets = BTreeMap::new();
         let half = decimal("43.71765");
         allocation_targets.insert(DENOM_NTRN.to_string(), half);
         allocation_targets.insert(DENOM_USDC.to_string(), half);
 
-        let mut denominators: HashSet<String> = holdings.keys().cloned().collect();
+        let mut denominators: BTreeSet<String> = holdings.keys().cloned().collect();
         denominators.extend(allocation_targets.keys().cloned());
 
         let (surpluses, deficits) =
@@ -610,10 +609,10 @@ mod tests {
 
     #[test]
     fn analyze_positions_with_base_tvl_detects_expected_surplus() {
-        let mut holdings = HashMap::new();
+        let mut holdings = BTreeMap::new();
         holdings.insert(DENOM_NTRN.to_string(), Uint256::from(2000u128));
 
-        let mut prices = HashMap::new();
+        let mut prices = BTreeMap::new();
         prices.insert(
             DENOM_NTRN.to_string(),
             asset_price(DENOM_NTRN, "0.04371765"),
@@ -622,12 +621,12 @@ mod tests {
 
         let tvl = decimal("0.0000874353");
 
-        let mut allocation_targets = HashMap::new();
+        let mut allocation_targets = BTreeMap::new();
         let half = decimal("0.00004371765");
         allocation_targets.insert(DENOM_NTRN.to_string(), half);
         allocation_targets.insert(DENOM_USDC.to_string(), half);
 
-        let mut denominators: HashSet<String> = holdings.keys().cloned().collect();
+        let mut denominators: BTreeSet<String> = holdings.keys().cloned().collect();
         denominators.extend(allocation_targets.keys().cloned());
 
         let (surpluses, deficits) =

@@ -25,6 +25,8 @@ use crate::{
     },
 };
 
+const NANOS_PER_MINUTE: u64 = 60 * 1_000_000_000;
+
 struct Component;
 
 impl Guest for Component {
@@ -47,7 +49,12 @@ impl Guest for Component {
                         .map_err(|e| format!("Could not parse trigger_time '{trigger_time_str}' from event {event:?}: {e}"))?,
                 })
             }
-            TriggerData::Cron(TriggerDataCron { trigger_time }) => Ok(trigger_time),
+            TriggerData::Cron(TriggerDataCron { trigger_time }) => {
+                let normalized_nanos = (trigger_time.nanos / NANOS_PER_MINUTE) * NANOS_PER_MINUTE;
+                Ok(Timestamp {
+                    nanos: normalized_nanos,
+                })
+            }
             _ => Err(format!(
                 "Component did not expect trigger action {action:?}"
             )),

@@ -18,6 +18,9 @@ vars:
       "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9",
       "ibc/2CB87BCE0937B1D1DFCEE79BE4501AAF3C265E923509AEAC410AD85D27F35130",
     ]
+  # Remote deployment configuration
+  AGGREGATOR_HOST: "35.158.118.133"
+  OPERATORS: 3
 
 tasks:
   clean:
@@ -54,11 +57,29 @@ tasks:
       - echo ""
       - echo "✅ Deployment completed! Artifacts are in {{.DEPLOYMENTS_ARTIFACTS_PATH}}"
 
+  all-aggregator:
+    cmds:
+      - task: set-service
+        vars:
+          HOST: "{{.AGGREGATOR_HOST}}"
+      - task: aggregator-register-service
+        vars:
+          ADDR:
+            sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/service-cid.json" | jq -r '.service.manager.cosmos.address'
+
+  all-operator:
+    cmds:
+      - task: operator-add-service
+        vars:
+          ADDR:
+            sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/service-cid.json" | jq -r '.service.manager.cosmos.address'
+
   set-service:
     deps: [all-upload-components]
     cmds:
       - task: service-upload
         vars:
+          HOST: "{{.HOST}}"
           CONTRACT_VAULT: "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/vault.json"
           MIDDLEWARE: "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/middleware.json"
           COMPONENT_OPERATOR: "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/operator-cid.json"
@@ -188,6 +209,20 @@ tasks:
           --contract-address={{.CONTRACT_ADDRESS}} \
           {{if .TO_ADD}}--to-add {{.TO_ADD}}{{end}} \
           {{if .TO_REMOVE}}--to-remove {{.TO_REMOVE}}{{end}}
+
+  contract-update-service-manager:
+    deps: [assert-account-exists]
+    vars:
+      CONTRACT_ADDRESS:
+        sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/vault.json" | jq -r '.address'
+      NEW_SERVICE_MANAGER_ADDRESS:
+        sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/middleware.json" | jq -r ".service_manager_address"
+    cmds:
+      - echo "🚀 Updating service manager address on vault contract {{.CONTRACT_ADDRESS}} to {{.NEW_SERVICE_MANAGER_ADDRESS}}..."
+      - |
+        cd packages/cli && cargo run update-service-manager \
+          --vault-address={{.CONTRACT_ADDRESS}} \
+          --new-service-manager-address={{.NEW_SERVICE_MANAGER_ADDRESS}}
 
   set-signing-key-*:
     deps: [assert-account-exists]
@@ -345,9 +380,10 @@ tasks:
           FILENAME,
         ]
     vars:
-      IPFS_API_URL: "http://127.0.0.1:{{.IPFS_API_PORT}}"
-      IPFS_GATEWAY_URL: "http://127.0.0.1:{{.IPFS_GATEWAY_PORT}}"
-      AGGREGATOR_URL: "http://127.0.0.1:{{.WAVS_AGGREGATOR_PORT}}"
+      HOST: '{{.HOST | default "http://127.0.0.1:"}}'
+      IPFS_API_URL: "{{.HOST}}{{.IPFS_API_PORT}}"
+      IPFS_GATEWAY_URL: "{{.HOST}}{{.IPFS_GATEWAY_PORT}}"
+      AGGREGATOR_URL: "{{.HOST}}{{.WAVS_AGGREGATOR_PORT}}"
       SERVICE_CRON_SCHEDULE: "0 0/30 * * * ? *"
       SERVICE_TRADE_STRATEGY: '{\"Fixed\":{\"{{index .INITIAL_WHITELISTED_DENOMS 0}}\":\"0.25\",\"{{index .INITIAL_WHITELISTED_DENOMS 1}}\":\"0.25\",\"{{index .INITIAL_WHITELISTED_DENOMS 2}}\":\"0.25\",\"{{index .INITIAL_WHITELISTED_DENOMS 3}}\":\"0.25\"}}'
     cmds:

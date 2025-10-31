@@ -644,3 +644,19 @@ pub fn manual_trigger(
             .add_attribute("trigger_time", env.block.time.nanos().to_string()),
     ))
 }
+
+pub fn update_service_manager(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    addr: String,
+) -> Result<Response, ContractError> {
+    assert_owner(deps.storage, &info.sender)?;
+
+    let new_service_manager = deps.api.addr_validate(&addr)?;
+    state::SERVICE_MANAGER.save(deps.storage, &new_service_manager)?;
+
+    Ok(Response::new()
+        .add_attribute("method", "update_service_manager")
+        .add_attribute("new_service_manager", new_service_manager.to_string()))
+}

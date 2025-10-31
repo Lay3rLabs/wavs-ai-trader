@@ -675,5 +675,39 @@ async fn main() -> anyhow::Result<()> {
                 .await?;
             Ok(())
         }
+        CliCommand::UpdateServiceManager {
+            vault_address,
+            new_service_manager_address,
+            args,
+        } => {
+            let client = ctx.signing_client().await?;
+            let vault_addr = ctx.parse_address(&vault_address).await?;
+
+            // Validate the new service manager address
+            let _ = ctx.parse_address(&new_service_manager_address).await?;
+
+            let update_service_manager_msg =
+                vault::ExecuteMsg::Vault(vault::VaultExecuteMsg::UpdateServiceManager {
+                    addr: new_service_manager_address.clone(),
+                });
+
+            let tx_resp = client
+                .contract_execute(&vault_addr, &update_service_manager_msg, vec![], None)
+                .await?;
+
+            println!(
+                "Updated service manager address on vault contract {} to {} with tx hash: {}",
+                vault_address, new_service_manager_address, tx_resp.txhash
+            );
+
+            args.output()
+                .write(OutputData::ContractExecute {
+                    kind: crate::command::ContractKind::Vault,
+                    address: vault_address,
+                    tx_hash: tx_resp.txhash,
+                })
+                .await?;
+            Ok(())
+        }
     }
 }

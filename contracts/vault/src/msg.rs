@@ -31,6 +31,9 @@ pub enum VaultExecuteMsg {
         swap_routes: Option<Vec<SwapRoute>>,
     },
     ManualTrigger {},
+    UpdateServiceManager {
+        addr: String,
+    },
 }
 
 #[cw_serde]

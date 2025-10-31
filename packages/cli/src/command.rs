@@ -194,6 +194,19 @@ pub enum CliCommand {
         #[clap(flatten)]
         args: CliArgs,
     },
+    /// Update the service manager address in the vault contract
+    UpdateServiceManager {
+        /// The address of the vault contract
+        #[arg(long)]
+        vault_address: String,
+
+        /// The new service manager address
+        #[arg(long)]
+        new_service_manager_address: String,
+
+        #[clap(flatten)]
+        args: CliArgs,
+    },
 }
 
 // common args for several commands
