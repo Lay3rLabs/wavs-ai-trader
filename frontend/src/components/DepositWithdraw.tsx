@@ -1,25 +1,26 @@
 "use client";
 
-import { useState } from 'react';
-import { useWallet } from '../contexts/WalletContext';
-import { useVault } from '../hooks/useVault';
-import { useTokenMetadata } from '../hooks/useTokenMetadata';
+import { useState } from "react";
+import { useWallet } from "../contexts/WalletContext";
+import { useVault } from "../hooks/useVault";
+import { useTokenMetadata } from "../hooks/useTokenMetadata";
 
 export function DepositWithdraw() {
   const { isConnected } = useWallet();
-  const { whitelistedDenoms, userShares, deposit, withdraw, isLoading } = useVault();
+  const { whitelistedDenoms, userShares, deposit, withdraw, isLoading } =
+    useVault();
   const { metadata: tokenMetadata } = useTokenMetadata(whitelistedDenoms);
 
-  const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw'>('deposit');
-  const [selectedDenom, setSelectedDenom] = useState('');
-  const [amount, setAmount] = useState('');
+  const [activeTab, setActiveTab] = useState<"deposit" | "withdraw">("deposit");
+  const [selectedDenom, setSelectedDenom] = useState("");
+  const [amount, setAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const handleDeposit = async () => {
     if (!selectedDenom || !amount) {
-      setError('Please select a token and enter an amount');
+      setError("Please select a token and enter an amount");
       return;
     }
 
@@ -30,27 +31,37 @@ export function DepositWithdraw() {
     try {
       // Convert amount to microunits (multiply by 1,000,000)
       const microAmount = (parseFloat(amount) * 1_000_000).toString();
-      console.log('Starting deposit with microAmount:', microAmount, 'denom:', selectedDenom);
+      console.log(
+        "Starting deposit with microAmount:",
+        microAmount,
+        "denom:",
+        selectedDenom,
+      );
 
       const result = await deposit(microAmount, selectedDenom);
 
       // Double check the result before showing success
       if (!result) {
-        throw new Error('No transaction result received');
+        throw new Error("No transaction result received");
       }
 
-      console.log('Deposit completed successfully:', result);
+      console.log("Deposit completed successfully:", result);
 
-      const txHash = result?.transactionHash || result?.hash || result?.txhash || 'unknown';
+      const txHash =
+        (result as any)?.transactionHash ||
+        (result as any)?.hash ||
+        (result as any)?.txhash ||
+        "unknown";
       setSuccess(`Deposit successful! Transaction: ${txHash}`);
-      setAmount('');
-      setSelectedDenom('');
+      setAmount("");
+      setSelectedDenom("");
 
       // Show success alert
       alert(`Deposit successful! Transaction hash: ${txHash}`);
     } catch (err) {
-      console.error('Deposit error details:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to deposit';
+      console.error("Deposit error details:", err);
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to deposit";
       setError(errorMessage);
       alert(`❌ Deposit failed: ${errorMessage}`);
     } finally {
@@ -60,7 +71,7 @@ export function DepositWithdraw() {
 
   const handleWithdraw = async () => {
     if (!amount) {
-      setError('Please enter an amount of shares to withdraw');
+      setError("Please enter an amount of shares to withdraw");
       return;
     }
 
@@ -69,26 +80,31 @@ export function DepositWithdraw() {
     setSuccess(null);
 
     try {
-      console.log('Starting withdrawal with shares:', amount);
+      console.log("Starting withdrawal with shares:", amount);
 
       const result = await withdraw(amount);
 
       // Double check the result before showing success
       if (!result) {
-        throw new Error('No transaction result received');
+        throw new Error("No transaction result received");
       }
 
-      console.log('Withdrawal completed successfully:', result);
+      console.log("Withdrawal completed successfully:", result);
 
-      const txHash = result?.transactionHash || result?.hash || result?.txhash || 'unknown';
+      const txHash =
+        (result as any)?.transactionHash ||
+        (result as any)?.hash ||
+        (result as any)?.txhash ||
+        "unknown";
       setSuccess(`Withdrawal successful! Transaction: ${txHash}`);
-      setAmount('');
+      setAmount("");
 
       // Show success alert
       alert(`Withdrawal successful! Transaction hash: ${txHash}`);
     } catch (err) {
-      console.error('Withdrawal error details:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to withdraw';
+      console.error("Withdrawal error details:", err);
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to withdraw";
       setError(errorMessage);
       alert(`❌ Withdrawal failed: ${errorMessage}`);
     } finally {
@@ -101,8 +117,18 @@ export function DepositWithdraw() {
       <div className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-black">
         <div className="container mx-auto px-4 py-12 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl rounded-lg border border-zinc-200 bg-zinc-50 p-8 text-center dark:border-zinc-800 dark:bg-zinc-900">
-            <svg className="mx-auto h-12 w-12 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            <svg
+              className="mx-auto h-12 w-12 text-zinc-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+              />
             </svg>
             <h3 className="mt-4 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
               Connect Your Wallet
@@ -128,28 +154,28 @@ export function DepositWithdraw() {
           <div className="mb-6 flex gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900">
             <button
               onClick={() => {
-                setActiveTab('deposit');
+                setActiveTab("deposit");
                 setError(null);
                 setSuccess(null);
               }}
               className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === 'deposit'
-                  ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-950 dark:text-zinc-50'
-                  : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50'
+                activeTab === "deposit"
+                  ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-950 dark:text-zinc-50"
+                  : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
               }`}
             >
               Deposit
             </button>
             <button
               onClick={() => {
-                setActiveTab('withdraw');
+                setActiveTab("withdraw");
                 setError(null);
                 setSuccess(null);
               }}
               className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === 'withdraw'
-                  ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-950 dark:text-zinc-50'
-                  : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50'
+                activeTab === "withdraw"
+                  ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-950 dark:text-zinc-50"
+                  : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
               }`}
             >
               Withdraw
@@ -157,7 +183,7 @@ export function DepositWithdraw() {
           </div>
 
           {/* Deposit Form */}
-          {activeTab === 'deposit' && (
+          {activeTab === "deposit" && (
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-800 dark:bg-zinc-900">
               <div className="space-y-4">
                 <div>
@@ -175,8 +201,10 @@ export function DepositWithdraw() {
                       const meta = tokenMetadata.get(denom);
                       return (
                         <option key={denom} value={denom}>
-                          {meta?.symbol || denom.replace('u', '').toUpperCase()}
-                          {meta?.name && meta.name !== meta.symbol && ` - ${meta.name}`}
+                          {meta?.symbol || denom.replace("u", "").toUpperCase()}
+                          {meta?.name &&
+                            meta.name !== meta.symbol &&
+                            ` - ${meta.name}`}
                         </option>
                       );
                     })}
@@ -216,16 +244,19 @@ export function DepositWithdraw() {
 
                 <button
                   onClick={handleDeposit}
-                  disabled={isLoading || isSubmitting || !selectedDenom || !amount}
+                  disabled={
+                    isLoading || isSubmitting || !selectedDenom || !amount
+                  }
                   className="w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
                 >
-                  {isSubmitting ? 'Depositing...' : 'Deposit Tokens'}
+                  {isSubmitting ? "Depositing..." : "Deposit Tokens"}
                 </button>
 
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950">
                   <p className="text-xs text-blue-800 dark:text-blue-200">
-                    Your deposit will be pending until the next price update from the WAVS AI agents.
-                    Once processed, you will receive vault shares proportional to your deposit value.
+                    Your deposit will be pending until the next price update
+                    from the WAVS AI agents. Once processed, you will receive
+                    vault shares proportional to your deposit value.
                   </p>
                 </div>
               </div>
@@ -233,7 +264,7 @@ export function DepositWithdraw() {
           )}
 
           {/* Withdraw Form */}
-          {activeTab === 'withdraw' && (
+          {activeTab === "withdraw" && (
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-800 dark:bg-zinc-900">
               <div className="space-y-4">
                 <div>
@@ -275,12 +306,13 @@ export function DepositWithdraw() {
                   disabled={isLoading || isSubmitting || !amount}
                   className="w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
                 >
-                  {isSubmitting ? 'Withdrawing...' : 'Withdraw Shares'}
+                  {isSubmitting ? "Withdrawing..." : "Withdraw Shares"}
                 </button>
 
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950">
                   <p className="text-xs text-blue-800 dark:text-blue-200">
-                    Withdrawing shares instantly returns your proportional share of all assets in the vault.
+                    Withdrawing shares instantly returns your proportional share
+                    of all assets in the vault.
                   </p>
                 </div>
               </div>
