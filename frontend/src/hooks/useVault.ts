@@ -22,13 +22,14 @@ export function useVault() {
   const [whitelistedDenoms, setWhitelistedDenoms] = useState<string[]>([]);
   const [pendingDeposits, setPendingDeposits] = useState<DepositRequest[]>([]);
   const [userShares, setUserShares] = useState<string>("0");
+  const [totalShares, setTotalShares] = useState<string>("0");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Create query client
   const queryClient = new VaultQueryClient(
     getCosmWasmClient(rpcEndpoint),
-    VAULT_CONTRACT_ADDRESS
+    VAULT_CONTRACT_ADDRESS,
   );
 
   // Fetch vault data
@@ -38,34 +39,39 @@ export function useVault() {
     setIsLoading(true);
     setError(null);
     try {
-      const [state, denoms, deposits] = await Promise.all([
+      const [state, denoms, deposits, shares] = await Promise.all([
         queryClient.getVaultState(),
         queryClient.getWhitelistedDenoms(),
         queryClient.listDepositRequests({ limit: 10 }),
+        queryClient.getTotalShares(),
       ]);
 
-      console.log('All deposits:', deposits);
-      console.log('Deposits with states:', deposits.map(d => ({ id: d.id, state: d.state })));
+      console.log("All deposits:", deposits);
+      console.log(
+        "Deposits with states:",
+        deposits.map((d) => ({ id: d.id, state: d.state })),
+      );
 
       setVaultState(state);
       setWhitelistedDenoms(denoms);
+      setTotalShares(shares);
 
       // Filter for pending deposits - state can be either "pending" string or object without completed
       const pending = deposits.filter((d) => {
         // Handle both string "pending" and object form
-        if (typeof d.state === 'string') {
+        if (typeof d.state === "string") {
           return d.state === "pending";
         }
         // If it's an object, check if it doesn't have "completed" property
-        return !('completed' in d.state);
+        return !("completed" in d.state);
       });
 
-      console.log('Filtered pending deposits:', pending);
+      console.log("Filtered pending deposits:", pending);
       setPendingDeposits(pending);
     } catch (err) {
       console.error("Error fetching vault data:", err);
       setError(
-        err instanceof Error ? err.message : "Failed to fetch vault data"
+        err instanceof Error ? err.message : "Failed to fetch vault data",
       );
     } finally {
       setIsLoading(false);
@@ -80,13 +86,17 @@ export function useVault() {
       // Note: This is a simplified version. In a real implementation,
       // you'd need to track user shares in the contract or query from events
       // For now, we'll just set it to total shares if user has any deposits
-      const totalShares = await queryClient.getTotalShares();
+      const _userShares = await queryClient.getUserShares({ user: address });
       const deposits = await queryClient.listDepositRequests({ limit: 100 });
       const userDeposits = deposits.filter((d) => d.user === address);
 
+      console.log("UserShares:", _userShares);
+
       if (userDeposits.length > 0) {
         // This is a simplification - in production you'd track this properly
-        setUserShares(totalShares);
+        setUserShares(_userShares);
+      } else {
+        setUserShares("0");
       }
     } catch (err) {
       console.error("Error fetching user shares:", err);
@@ -97,7 +107,12 @@ export function useVault() {
   const deposit = async (amount: string, denom: string) => {
     console.log("Deposit called with:", { amount, denom, client, address });
     if (!client || !address) {
-      console.error("Wallet not connected. Client:", client, "Address:", address);
+      console.error(
+        "Wallet not connected. Client:",
+        client,
+        "Address:",
+        address,
+      );
       throw new Error("Wallet not connected");
     }
 
@@ -105,25 +120,44 @@ export function useVault() {
       const vaultClient = new VaultClient(
         client,
         address,
-        VAULT_CONTRACT_ADDRESS
+        VAULT_CONTRACT_ADDRESS,
       );
       const funds: Coin[] = [{ amount, denom }];
 
       console.log("Calling vaultClient.deposit with funds:", funds);
       const result = await vaultClient.deposit("auto", undefined, funds);
-      console.log("Deposit transaction result (full):", JSON.stringify(result, null, 2));
-      console.log("Result code:", result?.code);
-      console.log("Result rawLog:", result?.rawLog);
+      console.log(
+        "Deposit transaction result (full):",
+        JSON.stringify(result, null, 2),
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      console.log("Result code:", (result as any)?.code);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      console.log("Result rawLog:", (result as any)?.rawLog);
 
       // Check for transaction failure - only fail if we have explicit error indicators
-      if (result?.code !== undefined && result?.code !== 0) {
-        const errorMsg = result?.rawLog || result?.log || 'Transaction failed';
-        console.error("Transaction failed with code:", result.code, errorMsg);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((result as any)?.code !== undefined && (result as any)?.code !== 0) {
+        const errorMsg =
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (result as any)?.rawLog ||
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (result as any)?.log ||
+          "Transaction failed";
+        console.error(
+          "Transaction failed with code:",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (result as any).code,
+          errorMsg,
+        );
         throw new Error(`Transaction failed: ${errorMsg}`);
       }
 
       // Additional check for empty result
-      if (!result || (typeof result === 'object' && Object.keys(result).length === 0)) {
+      if (
+        !result ||
+        (typeof result === "object" && Object.keys(result).length === 0)
+      ) {
         console.error("Empty transaction result received");
         throw new Error("Transaction failed: No result returned");
       }
@@ -141,7 +175,12 @@ export function useVault() {
   const withdraw = async (shares: string) => {
     console.log("Withdraw called with:", { shares, client, address });
     if (!client || !address) {
-      console.error("Wallet not connected. Client:", client, "Address:", address);
+      console.error(
+        "Wallet not connected. Client:",
+        client,
+        "Address:",
+        address,
+      );
       throw new Error("Wallet not connected");
     }
 
@@ -151,24 +190,43 @@ export function useVault() {
       const vaultClient = new VaultClient(
         client,
         address,
-        VAULT_CONTRACT_ADDRESS
+        VAULT_CONTRACT_ADDRESS,
       );
 
       console.log("Calling vaultClient.withdraw with shares:", shares);
       const result = await vaultClient.withdraw({ shares }, "auto");
-      console.log("Withdraw transaction result (full):", JSON.stringify(result, null, 2));
-      console.log("Result code:", result?.code);
-      console.log("Result rawLog:", result?.rawLog);
+      console.log(
+        "Withdraw transaction result (full):",
+        JSON.stringify(result, null, 2),
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      console.log("Result code:", (result as any)?.code);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      console.log("Result rawLog:", (result as any)?.rawLog);
 
       // Check for transaction failure - only fail if we have explicit error indicators
-      if (result?.code !== undefined && result?.code !== 0) {
-        const errorMsg = result?.rawLog || result?.log || 'Transaction failed';
-        console.error("Transaction failed with code:", result.code, errorMsg);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((result as any)?.code !== undefined && (result as any)?.code !== 0) {
+        const errorMsg =
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (result as any)?.rawLog ||
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (result as any)?.log ||
+          "Transaction failed";
+        console.error(
+          "Transaction failed with code:",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (result as any).code,
+          errorMsg,
+        );
         throw new Error(`Transaction failed: ${errorMsg}`);
       }
 
       // Additional check for empty result
-      if (!result || (typeof result === 'object' && Object.keys(result).length === 0)) {
+      if (
+        !result ||
+        (typeof result === "object" && Object.keys(result).length === 0)
+      ) {
         console.error("Empty transaction result received");
         throw new Error("Transaction failed: No result returned");
       }
@@ -203,6 +261,7 @@ export function useVault() {
     whitelistedDenoms,
     pendingDeposits,
     userShares,
+    totalShares,
     isLoading,
     error,
     deposit,
