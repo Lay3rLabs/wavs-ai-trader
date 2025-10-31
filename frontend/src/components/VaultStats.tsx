@@ -40,7 +40,7 @@ export function VaultStats() {
 
   const allDenoms = vaultState ? [
     ...vaultState.funds.map(c => c.denom),
-    ...vaultState.pending_assets.map(c => c.denom),
+    ...vaultState.total_pending_assets.map(c => c.denom),
   ] : [];
   const { metadata: tokenMetadata } = useTokenMetadata(allDenoms);
 
@@ -63,7 +63,7 @@ export function VaultStats() {
 
   const tvl = vaultState ? formatNumber(vaultState.tvl) : '$0.00';
   const assetsCount = vaultState?.funds.length || 0;
-  const pendingCount = vaultState?.pending_assets.length || 0;
+  const pendingCount = vaultState?.total_pending_assets.length || 0;
 
   return (
     <div className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-black">

@@ -3,8 +3,8 @@ use cw_storage_plus::Bound;
 
 use crate::{
     state::{
-        DEPOSIT_REQUESTS, PRICES, TOTAL_PENDING_ASSETS, TOTAL_SHARES, VAULT_ASSETS,
-        VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
+        StoredPriceInfo, DEPOSIT_REQUESTS, PRICES, TOTAL_PENDING_ASSETS, TOTAL_SHARES,
+        VAULT_ASSETS, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
     },
     DepositRequest, PriceInfo, VaultState,
 };
@@ -73,18 +73,30 @@ pub fn pending_asset_balance(deps: Deps, denom: String) -> StdResult<Uint256> {
         .or(Ok(Uint256::zero()))
 }
 
-pub fn price(deps: Deps, denom: String) -> StdResult<Decimal256> {
-    PRICES.load(deps.storage, denom).or(Ok(Decimal256::zero()))
+pub fn price(deps: Deps, denom: String) -> StdResult<PriceInfo> {
+    let stored = PRICES
+        .may_load(deps.storage, denom.clone())?
+        .unwrap_or(StoredPriceInfo {
+            price_usd: Decimal256::zero(),
+            decimals: 0,
+        });
+
+    Ok(PriceInfo {
+        denom,
+        price_usd: stored.price_usd,
+        decimals: stored.decimals,
+    })
 }
 
 pub fn prices(deps: Deps) -> StdResult<Vec<PriceInfo>> {
     PRICES
         .range(deps.storage, None, None, Order::Ascending)
         .map(|item| {
-            let (denom, price) = item?;
+            let (denom, stored) = item?;
             Ok(PriceInfo {
                 denom,
-                price_usd: price,
+                price_usd: stored.price_usd,
+                decimals: stored.decimals,
             })
         })
         .collect()

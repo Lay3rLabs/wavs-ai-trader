@@ -44,7 +44,7 @@ export interface VaultReadOnlyInterface {
   }) => Promise<ArrayOfDepositRequest>;
   getVaultAssets: () => Promise<ArrayOfCoin>;
   getVaultAssetBalance: ({ denom }: { denom: string }) => Promise<Uint256>;
-  getPendingAssets: () => Promise<ArrayOfCoin>;
+  getTotalPendingAssets: () => Promise<ArrayOfCoin>;
   getPendingAssetBalance: ({ denom }: { denom: string }) => Promise<Uint256>;
   getPrice: ({ denom }: { denom: string }) => Promise<Decimal256>;
   getPrices: () => Promise<ArrayOfPriceInfo>;
@@ -65,7 +65,7 @@ export class VaultQueryClient implements VaultReadOnlyInterface {
     this.listDepositRequests = this.listDepositRequests.bind(this);
     this.getVaultAssets = this.getVaultAssets.bind(this);
     this.getVaultAssetBalance = this.getVaultAssetBalance.bind(this);
-    this.getPendingAssets = this.getPendingAssets.bind(this);
+    this.getTotalPendingAssets = this.getTotalPendingAssets.bind(this);
     this.getPendingAssetBalance = this.getPendingAssetBalance.bind(this);
     this.getPrice = this.getPrice.bind(this);
     this.getPrices = this.getPrices.bind(this);
@@ -129,9 +129,9 @@ export class VaultQueryClient implements VaultReadOnlyInterface {
       },
     });
   };
-  getPendingAssets = async (): Promise<ArrayOfCoin> => {
+  getTotalPendingAssets = async (): Promise<ArrayOfCoin> => {
     return this.client.queryContractSmart(this.contractAddress, {
-      get_pending_assets: {},
+      get_total_pending_assets: {},
     });
   };
   getPendingAssetBalance = async ({
@@ -215,6 +215,11 @@ export interface VaultInterface extends VaultReadOnlyInterface {
     memo_?: string,
     funds_?: Coin[]
   ) => Promise<any>;
+  manualTrigger: (
+    fee_?: number | StdFee | "auto",
+    memo_?: string,
+    funds_?: Coin[]
+  ) => Promise<any>;
   updateOwnership: (
     action: Action,
     fee_?: number | StdFee | "auto",
@@ -251,6 +256,7 @@ export class VaultClient extends VaultQueryClient implements VaultInterface {
     this.withdraw = this.withdraw.bind(this);
     this.updateWhitelist = this.updateWhitelist.bind(this);
     this.updatePrices = this.updatePrices.bind(this);
+    this.manualTrigger = this.manualTrigger.bind(this);
     this.updateOwnership = this.updateOwnership.bind(this);
     this.wavsHandleSignedEnvelope = this.wavsHandleSignedEnvelope.bind(this);
   }
@@ -339,6 +345,22 @@ export class VaultClient extends VaultQueryClient implements VaultInterface {
           prices,
           swap_routes: swapRoutes,
         },
+      },
+      fee_,
+      memo_,
+      funds_
+    );
+  };
+  manualTrigger = async (
+    fee_: number | StdFee | "auto" = "auto",
+    memo_?: string,
+    funds_?: Coin[]
+  ): Promise<any> => {
+    return await this.client.execute(
+      this.sender,
+      this.contractAddress,
+      {
+        manual_trigger: {},
       },
       fee_,
       memo_,

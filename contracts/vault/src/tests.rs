@@ -1,4 +1,4 @@
-use cosmwasm_std::{coin, coins, Addr, Coin, Decimal256, Empty, Event, StdError, Uint256};
+use cosmwasm_std::{coin, coins, Addr, Coin, Decimal256, Empty, Event, StdError, Uint128, Uint256};
 use cw_multi_test::{App, AppBuilder, AppResponse, Contract, ContractWrapper, Executor};
 use cw_ownable::Ownership;
 use std::str::FromStr;
@@ -467,6 +467,7 @@ fn test_pending_assets_tracking() {
         vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
+            decimals: 0,
         }],
         None,
     );
@@ -534,6 +535,7 @@ fn test_pending_assets_partial_processing() {
         vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
+            decimals: 0,
         }],
         None,
     );
@@ -555,6 +557,7 @@ fn test_pending_assets_partial_processing() {
         vec![PriceInfo {
             denom: DENOM_OSMO.to_string(),
             price_usd: decimal(5),
+            decimals: 0,
         }],
         None,
     );
@@ -625,10 +628,12 @@ fn test_multi_denom_deposit_price_processing() {
             PriceInfo {
                 denom: DENOM_ATOM.to_string(),
                 price_usd: decimal(10),
+                decimals: 0,
             },
             PriceInfo {
                 denom: DENOM_OSMO.to_string(),
                 price_usd: decimal(5),
+                decimals: 0,
             },
         ],
         None,
@@ -704,6 +709,7 @@ fn test_update_prices_and_process_deposits() {
         vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
+            decimals: 0,
         }],
         None,
     );
@@ -783,6 +789,7 @@ fn test_share_issuance_precision() {
         vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
+            decimals: 0,
         }],
         None,
     );
@@ -826,6 +833,7 @@ fn test_share_issuance_precision() {
         vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
+            decimals: 0,
         }],
         None,
     );
@@ -902,6 +910,7 @@ fn test_update_prices_rejects_zero_price() {
                 prices: vec![PriceInfo {
                     denom: DENOM_ATOM.to_string(),
                     price_usd: Decimal256::zero(),
+                    decimals: 0,
                 }],
                 swap_routes: None,
             }),
@@ -953,6 +962,7 @@ fn test_multi_denom_price_updates_with_pending_handling() {
         vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
+            decimals: 0,
         }],
         None,
     );
@@ -1004,10 +1014,12 @@ fn test_multi_denom_price_updates_with_pending_handling() {
             PriceInfo {
                 denom: DENOM_ATOM.to_string(),
                 price_usd: decimal(10),
+                decimals: 0,
             },
             PriceInfo {
                 denom: DENOM_OSMO.to_string(),
                 price_usd: decimal(5),
+                decimals: 0,
             },
         ],
         None,
@@ -1099,6 +1111,7 @@ fn test_price_volatility_updates() {
         vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
+            decimals: 0,
         }],
         None,
     );
@@ -1140,6 +1153,7 @@ fn test_price_volatility_updates() {
         vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(5),
+            decimals: 0,
         }],
         None,
     );
@@ -1249,6 +1263,7 @@ fn test_withdraw_success() {
         vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
+            decimals: 0,
         }],
         None,
     );
@@ -1451,6 +1466,7 @@ fn test_multiple_deposits_and_withdrawals() {
         vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
+            decimals: 0,
         }],
         None,
     );
@@ -1533,6 +1549,7 @@ fn test_vault_assets_query() {
         vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
+            decimals: 0,
         }],
         None,
     );
@@ -1554,7 +1571,7 @@ fn test_price_query() {
     let (mut app, vault_addr, _) = proper_instantiate();
 
     // Initially no price
-    let price: Decimal256 = app
+    let price: PriceInfo = app
         .wrap()
         .query_wasm_smart(
             &vault_addr,
@@ -1563,7 +1580,8 @@ fn test_price_query() {
             }),
         )
         .unwrap();
-    assert_eq!(price, Decimal256::zero());
+    assert_eq!(price.price_usd, Decimal256::zero());
+    assert_eq!(price.decimals, 0);
 
     // Update price
     execute_update_prices(
@@ -1572,12 +1590,13 @@ fn test_price_query() {
         vec![PriceInfo {
             denom: DENOM_ATOM.to_string(),
             price_usd: decimal(10),
+            decimals: 0,
         }],
         None,
     );
 
     // Check price
-    let price: Decimal256 = app
+    let price: PriceInfo = app
         .wrap()
         .query_wasm_smart(
             &vault_addr,
@@ -1586,7 +1605,67 @@ fn test_price_query() {
             }),
         )
         .unwrap();
-    assert_eq!(price, decimal(10));
+    assert_eq!(price.price_usd, decimal(10));
+    assert_eq!(price.decimals, 0);
+}
+
+#[test]
+fn test_high_precision_price_handling() {
+    let (mut app, vault_addr, addrs) = proper_instantiate();
+
+    // Deposit a small amount that will be interpreted with 18 decimal places
+    let high_precision_amount = Uint128::new(1000);
+    app.execute_contract(
+        addrs.user1.clone(),
+        vault_addr.clone(),
+        &ExecuteMsg::Vault(VaultExecuteMsg::Deposit {}),
+        &[Coin {
+            denom: DENOM_ATOM.to_string(),
+            amount: Uint256::from(high_precision_amount),
+        }],
+    )
+    .unwrap();
+
+    // Update price with 18 decimal precision metadata
+    let display_price = Decimal256::from_str("0.310581").unwrap();
+    execute_update_prices(
+        &mut app,
+        &vault_addr,
+        vec![PriceInfo {
+            denom: DENOM_ATOM.to_string(),
+            price_usd: display_price,
+            decimals: 18,
+        }],
+        None,
+    );
+
+    // Confirm price query returns the precision
+    let price_info: PriceInfo = app
+        .wrap()
+        .query_wasm_smart(
+            &vault_addr,
+            &QueryMsg::Vault(VaultQueryMsg::GetPrice {
+                denom: DENOM_ATOM.to_string(),
+            }),
+        )
+        .unwrap();
+    assert_eq!(price_info.price_usd, display_price);
+    assert_eq!(price_info.decimals, 18);
+
+    // Vault value should equal price * display amount (1.0)
+    let vault_value: Decimal256 = app
+        .wrap()
+        .query_wasm_smart(
+            &vault_addr,
+            &QueryMsg::Vault(VaultQueryMsg::GetVaultValue {}),
+        )
+        .unwrap();
+    let base_scale = Decimal256::from_ratio(
+        Uint256::from(high_precision_amount),
+        Uint256::from(1_000_000_000_000_000_000u128),
+    );
+    let expected_value = display_price.checked_mul(base_scale).unwrap();
+    assert_eq!(vault_value, expected_value);
 }
 
 #[test]

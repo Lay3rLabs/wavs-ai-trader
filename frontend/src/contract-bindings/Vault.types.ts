@@ -33,6 +33,9 @@ export type VaultExecuteMsg =
       };
     }
   | {
+      manual_trigger: {};
+    }
+  | {
       update_ownership: Action;
     };
 export type Uint256 = string;
@@ -72,6 +75,7 @@ export type EvmAddr = string;
 export interface PriceInfo {
   denom: string;
   price_usd: Decimal256;
+  decimals: number;
 }
 export interface SwapRoute {
   amount_in: Uint128;
@@ -125,7 +129,7 @@ export type VaultQueryMsg =
       };
     }
   | {
-      get_pending_assets: {};
+      get_total_pending_assets: {};
     }
   | {
       get_pending_asset_balance: {
@@ -172,7 +176,7 @@ export type ArrayOfCoin = Coin[];
 export type ArrayOfPriceInfo = PriceInfo[];
 export interface VaultState {
   funds: Coin[];
-  pending_assets: Coin[];
+  total_pending_assets: Coin[];
   prices: PriceInfo[];
   tvl: Decimal256;
 }

@@ -75,7 +75,7 @@ impl CoinGeckoApiClient {
         );
 
         let mut prices = HashMap::new();
-        for (denom, id, _) in assets {
+        for (denom, id, _decimals) in assets {
             if let Some(vs_map) = payload.0.get(id) {
                 if let Some(price) = vs_map.get(vs_currency) {
                     // Use rust_decimal for parsing to maintain precision
@@ -83,7 +83,7 @@ impl CoinGeckoApiClient {
                         anyhow!("failed to parse CoinGecko price into rust_decimal: {e}")
                     })?;
 
-                    // Convert to Decimal256 for the payload (raw USD price, no scaling)
+                    // Convert to Decimal256 for the payload (display price in USD)
                     let price_decimal =
                         Decimal256::from_str(&rust_decimal.to_string()).map_err(|e| {
                             anyhow!("failed to convert rust_decimal to Decimal256: {e}")

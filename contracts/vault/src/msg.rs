@@ -65,7 +65,7 @@ pub enum VaultQueryMsg {
     GetTotalPendingAssets {},
     #[returns(Uint256)]
     GetPendingAssetBalance { denom: String },
-    #[returns(cosmwasm_std::Decimal256)]
+    #[returns(PriceInfo)]
     GetPrice { denom: String },
     #[returns(Vec<PriceInfo>)]
     GetPrices {},
@@ -96,7 +96,8 @@ pub struct VaultState {
 #[cw_serde]
 pub struct PriceInfo {
     pub denom: String,
-    pub price_usd: Decimal256, // Price as USD decimal (e.g., 1234.56)
+    pub price_usd: Decimal256, // Display-denom USD price (e.g., 1234.56)
+    pub decimals: u8,          // Base-denom decimal precision (0 => price already per base unit)
 }
 
 #[cw_serde]

@@ -52,4 +52,7 @@ pub enum ContractError {
 
     #[error("Swap route amount is zero for denom: {denom}")]
     SwapRouteZeroAmount { denom: String },
+
+    #[error("Decimal precision {decimals} not supported for denom: {denom}")]
+    UnsupportedDecimalPrecision { denom: String, decimals: u8 },
 }

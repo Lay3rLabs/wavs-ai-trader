@@ -15,8 +15,8 @@ use crate::skip_entry::{
     SwapExactAssetIn, SwapRoute,
 };
 use crate::state::{
-    self, TradeInfo, DEPOSIT_ID_COUNTER, DEPOSIT_REQUESTS, PRICES, SKIP_ENTRY_POINT,
-    TOTAL_PENDING_ASSETS, TOTAL_SHARES, TRADE_TRACKER, USER_SHARES, VAULT_ASSETS,
+    self, StoredPriceInfo, TradeInfo, DEPOSIT_ID_COUNTER, DEPOSIT_REQUESTS, PRICES,
+    SKIP_ENTRY_POINT, TOTAL_PENDING_ASSETS, TOTAL_SHARES, TRADE_TRACKER, USER_SHARES, VAULT_ASSETS,
     VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
 };
 use crate::{DepositRequest, DepositState, Payload, REPLY_TRACKER_ID};
@@ -265,17 +265,28 @@ pub fn update_prices(
             });
         }
 
+        if price_update.decimals > 18 {
+            return Err(ContractError::UnsupportedDecimalPrecision {
+                denom: price_update.denom.clone(),
+                decimals: price_update.decimals,
+            });
+        }
+
         // Store the new price
         PRICES.save(
             deps.storage,
             price_update.denom.clone(),
-            &price_update.price_usd,
+            &StoredPriceInfo {
+                price_usd: price_update.price_usd,
+                decimals: price_update.decimals,
+            },
         )?;
 
         events.push(
             cosmwasm_std::Event::new("price_updated")
                 .add_attribute("denom", &price_update.denom)
-                .add_attribute("price_usd", price_update.price_usd.to_string()),
+                .add_attribute("price_usd", price_update.price_usd.to_string())
+                .add_attribute("decimals", price_update.decimals.to_string()),
         );
     }
 
@@ -417,11 +428,10 @@ pub fn calculate_vault_usd_value(
         let (denom, balance) = item?;
 
         // Get the current price for this denom
-        if let Some(price_usd) = PRICES.may_load(storage, denom.clone())? {
-            // Calculate USD value: balance * price_usd (convert balance to Decimal first)
-            // Assuming 0 decimal places for all tokens
-            let balance_decimal = Decimal256::from_atomics(balance, 0)?;
-            let usd_value = price_usd.checked_mul(balance_decimal)?;
+        if let Some(price_info) = PRICES.may_load(storage, denom.clone())? {
+            let decimals = u32::from(price_info.decimals);
+            let balance_decimal = Decimal256::from_atomics(balance, decimals)?;
+            let usd_value = price_info.price_usd.checked_mul(balance_decimal)?;
             total_value = total_value.checked_add(usd_value)?;
         }
         // If no price is available, we assume the asset has no USD value
@@ -452,9 +462,12 @@ fn process_pending_deposits(
                     let mut has_valid_prices = true;
 
                     for coin in &deposit.coins {
-                        if let Ok(price_usd) = PRICES.load(storage, coin.denom.clone()) {
-                            let amount_decimal = Decimal256::from_atomics(coin.amount, 0).ok()?;
-                            let coin_value = price_usd.checked_mul(amount_decimal).ok()?;
+                        if let Ok(price_info) = PRICES.load(storage, coin.denom.clone()) {
+                            let decimals = u32::from(price_info.decimals);
+                            let amount_decimal =
+                                Decimal256::from_atomics(coin.amount, decimals).ok()?;
+                            let coin_value =
+                                price_info.price_usd.checked_mul(amount_decimal).ok()?;
                             total_value = total_value.checked_add(coin_value).ok()?;
                         } else {
                             has_valid_prices = false;

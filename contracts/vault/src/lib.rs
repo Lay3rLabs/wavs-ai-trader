@@ -1,10 +1,11 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Binary, Decimal256, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdError,
-    StdResult, Uint256,
+    to_json_binary, Binary, Decimal256, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response,
+    StdError, StdResult, Uint256,
 };
 use cw2::set_contract_version;
+use cw_storage_plus::Map;
 use wavs_types::contracts::cosmwasm::service_handler::{
     ServiceHandlerExecuteMessages, ServiceHandlerQueryMessages,
 };
@@ -12,8 +13,8 @@ use wavs_types::contracts::cosmwasm::service_handler::{
 use crate::error::ContractError;
 use crate::execute::calculate_vault_usd_value;
 use crate::state::{
-    DEPOSIT_ID_COUNTER, PRICES, SKIP_ENTRY_POINT, TOTAL_SHARES, TRADE_TRACKER, VAULT_ASSETS,
-    VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
+    StoredPriceInfo, DEPOSIT_ID_COUNTER, PRICES, SKIP_ENTRY_POINT, TOTAL_SHARES, TRADE_TRACKER,
+    VAULT_ASSETS, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
 };
 
 mod error;
@@ -56,7 +57,14 @@ pub fn instantiate(
     // Initialize whitelisted denoms
     for denom in msg.initial_whitelisted_denoms {
         WHITELISTED_DENOMS.save(deps.storage, denom.clone(), &())?;
-        PRICES.save(deps.storage, denom, &Decimal256::zero())?;
+        PRICES.save(
+            deps.storage,
+            denom,
+            &StoredPriceInfo {
+                price_usd: Decimal256::zero(),
+                decimals: 0,
+            },
+        )?;
     }
 
     // Initialize deposit_id counter to 0
@@ -215,12 +223,38 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    if PRICES.is_empty(deps.storage) {
-        let denoms = WHITELISTED_DENOMS
-            .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-            .collect::<Vec<_>>();
-        for denom in denoms {
-            PRICES.save(deps.storage, denom?, &Decimal256::zero())?;
+    // Attempt to load legacy price entries (stored as Decimal256 per base unit)
+    let legacy_prices: Map<String, Decimal256> = Map::new("prices");
+    let legacy_entries = legacy_prices
+        .range(deps.storage, None, None, Order::Ascending)
+        .collect::<StdResult<Vec<_>>>()?;
+
+    for (denom, price) in legacy_entries {
+        PRICES.save(
+            deps.storage,
+            denom,
+            &StoredPriceInfo {
+                price_usd: price,
+                decimals: 0,
+            },
+        )?;
+    }
+
+    // Ensure all whitelisted denoms have a price entry
+    let denoms = WHITELISTED_DENOMS
+        .keys(deps.storage, None, None, Order::Ascending)
+        .collect::<Vec<_>>();
+    for denom in denoms {
+        let denom = denom?;
+        if PRICES.may_load(deps.storage, denom.clone())?.is_none() {
+            PRICES.save(
+                deps.storage,
+                denom,
+                &StoredPriceInfo {
+                    price_usd: Decimal256::zero(),
+                    decimals: 0,
+                },
+            )?;
         }
     }
 

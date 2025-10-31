@@ -67,6 +67,7 @@ async fn test_vault_single_deposit() {
             prices: vec![vault::msg::PriceInfo {
                 denom: "uatom".to_string(),
                 price_usd: Decimal256::from_str("10.0").unwrap(),
+                decimals: 0,
             }],
         },
     )
@@ -114,14 +115,17 @@ async fn test_vault_multi_denom_deposit() {
                 vault::msg::PriceInfo {
                     denom: "uatom".to_string(),
                     price_usd: Decimal256::from_str("10.0").unwrap(),
+                    decimals: 0,
                 },
                 vault::msg::PriceInfo {
                     denom: "uosmo".to_string(),
                     price_usd: Decimal256::from_str("2.0").unwrap(),
+                    decimals: 0,
                 },
                 vault::msg::PriceInfo {
                     denom: "ujuno".to_string(),
                     price_usd: Decimal256::from_str("5.0").unwrap(),
+                    decimals: 0,
                 },
             ],
         },
@@ -160,6 +164,7 @@ async fn test_vault_withdrawal() {
             prices: vec![vault::msg::PriceInfo {
                 denom: "uatom".to_string(),
                 price_usd: Decimal256::from_str("10.0").unwrap(),
+                decimals: 0,
             }],
         },
     )
@@ -239,14 +244,17 @@ async fn test_vault_price_updates() {
                 vault::msg::PriceInfo {
                     denom: "uatom".to_string(),
                     price_usd: Decimal256::from_str("15.5").unwrap(),
+                    decimals: 0,
                 },
                 vault::msg::PriceInfo {
                     denom: "uosmo".to_string(),
                     price_usd: Decimal256::from_str("2.3").unwrap(),
+                    decimals: 0,
                 },
                 vault::msg::PriceInfo {
                     denom: "ujuno".to_string(),
                     price_usd: Decimal256::from_str("7.8").unwrap(),
+                    decimals: 0,
                 },
             ],
         },
@@ -259,7 +267,8 @@ async fn test_vault_price_updates() {
 
     for price_info in &vault_state.prices {
         let queried_price = vault.querier.price(price_info.denom.clone()).await.unwrap();
-        assert_eq!(queried_price, price_info.price_usd);
+        assert_eq!(queried_price.price_usd, price_info.price_usd);
+        assert_eq!(queried_price.decimals, price_info.decimals);
     }
 }
 
@@ -328,10 +337,12 @@ async fn test_vault_comprehensive_workflow() {
                 vault::msg::PriceInfo {
                     denom: "uatom".to_string(),
                     price_usd: Decimal256::from_str("15.0").unwrap(),
+                    decimals: 0,
                 },
                 vault::msg::PriceInfo {
                     denom: "uosmo".to_string(),
                     price_usd: Decimal256::from_str("2.0").unwrap(),
+                    decimals: 0,
                 },
             ],
             new_whitelist_denom: "uwasm".to_string(),

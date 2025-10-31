@@ -122,8 +122,8 @@ impl VaultQuerier {
     }
 
     /// Query price of a specific denomination
-    pub async fn price(&self, denom: String) -> Result<Decimal256> {
-        let resp: Decimal256 = self
+    pub async fn price(&self, denom: String) -> Result<PriceInfo> {
+        let resp: PriceInfo = self
             .query(&QueryMsg::Vault(VaultQueryMsg::GetPrice { denom }))
             .await?;
         Ok(resp)
