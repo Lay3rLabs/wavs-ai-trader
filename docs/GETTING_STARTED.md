@@ -24,7 +24,7 @@ Edit the `.env` file and set the required fields according to your configuration
 Start all the backend services:
 
 ```bash
-task backend:start-all
+task backend:start-all OPERATORS=3
 ```
 
 This will launch the required services for the WAVS vault system.
@@ -34,6 +34,8 @@ This will launch the required services for the WAVS vault system.
 Since the contracts are already deployed on Neutron-1 mainnet, you can get started on a fresh instance by running these commands:
 
 ```bash
+# If running locally, in deploy.yml, uncomment the OPERATORS: 3 var
+
 # 1. Set up the service configuration
 task deploy:set-service
 
