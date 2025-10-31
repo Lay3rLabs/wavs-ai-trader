@@ -21,6 +21,7 @@ tasks:
       OPERATORS: '{{.OPERATORS | default "1"}}'
     deps: [{ task: start-chains }, { task: start-ipfs }]
     cmds:
+      - task: start-wavs-aggregator
       - task: start-wavs
         VARS: { OPERATORS: "{{.OPERATORS}}" }
 
@@ -130,12 +131,10 @@ tasks:
       vars: [OPERATORS]
     deps:
       - task: start-wavs-telemetry
-      - task: start-wavs-aggregator
       - for: { var: OPERATORS_RANGE }
         task: start-wavs-operator-{{.ITEM}}
 
   start-wavs-aggregator:
-    internal: true
     deps:
       - task: docker-start-wavs-aggregator
     cmds:
