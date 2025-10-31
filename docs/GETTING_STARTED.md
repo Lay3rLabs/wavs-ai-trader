@@ -47,7 +47,7 @@ task deploy:contract-manual-trigger
 ## Configuration Details
 
 The system is currently configured for:
-- **Asset Allocation**: 50% USDC, 50% NTRN
+- **Asset Allocation**: Originally 50% USDC, 50% NTRN - Now 25% across all whitelisted assets
 - **Rebalancing Interval**: 30 minutes (automatic)
 - **Manual Triggering**: Available via `task deploy:contract-manual-trigger`
 
