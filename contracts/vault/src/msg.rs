@@ -71,6 +71,8 @@ pub enum VaultQueryMsg {
     GetPrices {},
     #[returns(VaultState)]
     GetVaultState {},
+    #[returns(Uint256)]
+    GetUserShares { user: String },
 }
 
 #[cw_serde]

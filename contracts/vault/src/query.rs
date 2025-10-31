@@ -3,7 +3,7 @@ use cw_storage_plus::Bound;
 
 use crate::{
     state::{
-        StoredPriceInfo, DEPOSIT_REQUESTS, PRICES, TOTAL_PENDING_ASSETS, TOTAL_SHARES,
+        StoredPriceInfo, DEPOSIT_REQUESTS, PRICES, TOTAL_PENDING_ASSETS, TOTAL_SHARES, USER_SHARES,
         VAULT_ASSETS, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
     },
     DepositRequest, PriceInfo, VaultState,
@@ -109,4 +109,8 @@ pub fn vault_state(deps: Deps) -> StdResult<VaultState> {
         prices: prices(deps)?,
         tvl: vault_value(deps)?,
     })
+}
+
+pub fn user_shares(deps: Deps, user: String) -> StdResult<Uint256> {
+    USER_SHARES.load(deps.storage, user).or(Ok(Uint256::zero()))
 }
