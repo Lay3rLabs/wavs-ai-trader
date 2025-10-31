@@ -5,6 +5,7 @@ use wavs_wasi_utils::http;
 
 mod types;
 
+use crate::host;
 pub use types::*;
 
 pub const ROUTE: &str = "https://api.skip.build/v2/fungible/route";
@@ -50,16 +51,24 @@ impl SkipAPIClient {
             allow_multi_tx: false,
         };
 
-        // Debug log the request
-        eprintln!("Making Skip API request to: {}", ROUTE);
-        eprintln!("Request body: {}", serde_json::to_string(&request)?);
+        host::log(
+            host::LogLevel::Debug,
+            &format!("Making Skip API request to: {}", ROUTE),
+        );
+        host::log(
+            host::LogLevel::Debug,
+            &format!("Request body: {}", serde_json::to_string(&request)?),
+        );
 
         let route_plan: RoutePlan =
             http::fetch_json(http::http_request_post_json(ROUTE, &request)?)
                 .await
                 .context("failed to fetch Skip route response")?;
 
-        eprintln!("Skip API response received successfully");
+        host::log(
+            host::LogLevel::Info,
+            "Skip API response received successfully",
+        );
 
         Ok(route_plan)
     }

@@ -1,10 +1,13 @@
 use std::{collections::HashMap, str::FromStr};
 
 use anyhow::{anyhow, Context, Result};
-use cosmwasm_std::{Decimal256, Uint256};
+use cosmwasm_std::Decimal256;
+use rust_decimal::Decimal;
 use serde::Deserialize;
 use wavs_wasi_utils::http;
 use wstd::http::Request;
+
+use crate::host;
 
 const SIMPLE_PRICE_ENDPOINT: &str = "https://api.coingecko.com/api/v3/simple/price";
 
@@ -57,29 +60,36 @@ impl CoinGeckoApiClient {
             request
         };
 
-        eprintln!("Making CoinGecko API request to: {}", uri);
+        host::log(
+            host::LogLevel::Info,
+            &format!("Making CoinGecko API request to: {}", uri),
+        );
 
         let payload: SimplePriceResponse = http::fetch_json(request)
             .await
             .context("failed to call CoinGecko API")?;
 
-        eprintln!("CoinGecko API response received successfully");
+        host::log(
+            host::LogLevel::Info,
+            "CoinGecko API response received successfully",
+        );
 
         let mut prices = HashMap::new();
-        for (denom, id, decimals) in assets {
+        for (denom, id, _) in assets {
             if let Some(vs_map) = payload.0.get(id) {
                 if let Some(price) = vs_map.get(vs_currency) {
-                    let price_decimal = Decimal256::from_str(&price.to_string()).map_err(|e| {
-                        anyhow!("failed to parse CoinGecko price into Decimal256: {e}")
+                    // Use rust_decimal for parsing to maintain precision
+                    let rust_decimal = Decimal::from_str(&price.to_string()).map_err(|e| {
+                        anyhow!("failed to parse CoinGecko price into rust_decimal: {e}")
                     })?;
-                    let scale = Decimal256::from_ratio(
-                        Uint256::one(),
-                        Uint256::from(10u128.pow(*decimals as u32)),
-                    );
-                    let atomic_price = price_decimal.checked_mul(scale).map_err(|e| {
-                        anyhow!("overflow scaling CoinGecko price into atomic units: {e}")
-                    })?;
-                    prices.insert(denom.clone(), atomic_price);
+
+                    // Convert to Decimal256 for the payload (raw USD price, no scaling)
+                    let price_decimal =
+                        Decimal256::from_str(&rust_decimal.to_string()).map_err(|e| {
+                            anyhow!("failed to convert rust_decimal to Decimal256: {e}")
+                        })?;
+
+                    prices.insert(denom.clone(), price_decimal);
                 }
             }
         }

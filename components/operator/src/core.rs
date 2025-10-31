@@ -11,6 +11,7 @@ use vault::{
     Payload, QueryMsg, SwapOperation as VaultSwapOperation, SwapRoute, VaultQueryMsg, VaultState,
 };
 
+use crate::host;
 use crate::{
     coingecko::{get_neutron_asset, CoinGeckoApiClient},
     skip::SkipAPIClient,
@@ -24,12 +25,31 @@ pub async fn generate_payload(
     timestamp: u64,
     chain_id: String,
 ) -> Result<Payload> {
+    host::log(
+        host::LogLevel::Info,
+        &format!("Starting payload generation for vault: {}", addr),
+    );
+
     trade_strategy.validate()?;
+
+    host::log(
+        host::LogLevel::Debug,
+        "Trade strategy validated successfully",
+    );
 
     let vault_state: VaultState = query_client
         .contract_smart(&addr, &QueryMsg::Vault(VaultQueryMsg::GetVaultState {}))
         .await
         .context("failed to query vault state")?;
+
+    host::log(
+        host::LogLevel::Info,
+        &format!(
+            "Vault state retrieved: TVL={}, holdings={}",
+            vault_state.tvl,
+            vault_state.funds.len()
+        ),
+    );
 
     let VaultState {
         funds,
@@ -61,8 +81,21 @@ pub async fn generate_payload(
         CoinGeckoApiClient::new(std::env::var("WAVS_ENV_COINGECKO_API_KEY").ok());
     let asset_queries = price_lookup_assets(&price_map);
     if !asset_queries.is_empty() {
+        host::log(
+            host::LogLevel::Info,
+            &format!(
+                "Querying prices for {} assets from CoinGecko",
+                asset_queries.len()
+            ),
+        );
         let fresh_prices = coingecko_client.query_prices(&asset_queries, "usd").await?;
+        host::log(
+            host::LogLevel::Debug,
+            &format!("Retrieved {} fresh prices", fresh_prices.len()),
+        );
         apply_fresh_prices(&mut price_map, fresh_prices);
+    } else {
+        host::log(host::LogLevel::Debug, "No external price queries needed");
     }
 
     let holdings: HashMap<String, Uint256> = funds
@@ -75,6 +108,11 @@ pub async fn generate_payload(
 
     let mut denominators: HashSet<String> = holdings.keys().cloned().collect();
     denominators.extend(allocation_targets.keys().cloned());
+
+    host::log(
+        host::LogLevel::Debug,
+        &format!("Analyzing {} assets for rebalancing", denominators.len()),
+    );
 
     for denom in denominators {
         let amount = holdings.get(&denom).copied().unwrap_or_else(Uint256::zero);
@@ -103,9 +141,20 @@ pub async fn generate_payload(
             _ => continue,
         };
 
+        // Scale the price for base unit calculations
+        let scaled_price = if let Some((_, decimals)) = get_neutron_asset(&denom) {
+            let scale =
+                Decimal256::from_ratio(Uint256::one(), Uint256::from(10u128.pow(decimals as u32)));
+            price
+                .checked_mul(scale)
+                .map_err(|e| anyhow!("overflow scaling price: {e}"))?
+        } else {
+            price
+        };
+
         let amount_decimal = Decimal256::from_atomics(amount, 0)
             .map_err(|e| anyhow!("failed to convert holdings to decimal: {e}"))?;
-        let current_value = price
+        let current_value = scaled_price
             .checked_mul(amount_decimal)
             .map_err(|e| anyhow!("overflow while evaluating holdings value: {e}"))?;
 
@@ -138,6 +187,15 @@ pub async fn generate_payload(
 
     let skip_client = SkipAPIClient::new(chain_id);
     let mut swap_routes_vec: Vec<SwapRoute> = Vec::new();
+
+    host::log(
+        host::LogLevel::Info,
+        &format!(
+            "Identified {} surplus assets and {} deficit assets",
+            surplus_list.len(),
+            deficit_list.len()
+        ),
+    );
 
     if !surplus_list.is_empty() && !deficit_list.is_empty() {
         for deficit in &mut deficit_list {
@@ -219,8 +277,16 @@ pub async fn generate_payload(
     let swap_routes = if swap_routes_vec.is_empty() {
         None
     } else {
-        Some(swap_routes_vec)
+        Some(swap_routes_vec.clone())
     };
+
+    host::log(
+        host::LogLevel::Info,
+        &format!(
+            "Payload generation complete: {} swap routes planned",
+            swap_routes_vec.len()
+        ),
+    );
 
     Ok(Payload {
         timestamp: Timestamp::from_nanos(timestamp),
@@ -260,8 +326,20 @@ async fn build_swap_route(
 
     let surplus_amount_decimal = Decimal256::from_atomics(surplus.amount, 0)
         .map_err(|e| anyhow!("failed to convert surplus token balance to Decimal256: {e}"))?;
-    let available_sell_usd = surplus
-        .price
+
+    // Scale the price for base unit calculations
+    let scaled_price = if let Some((_, decimals)) = get_neutron_asset(&surplus.denom) {
+        let scale =
+            Decimal256::from_ratio(Uint256::one(), Uint256::from(10u128.pow(decimals as u32)));
+        surplus
+            .price
+            .checked_mul(scale)
+            .map_err(|e| anyhow!("overflow scaling surplus price: {e}"))?
+    } else {
+        surplus.price
+    };
+
+    let available_sell_usd = scaled_price
         .checked_mul(surplus_amount_decimal)
         .map_err(|e| anyhow!("overflow calculating available sell usd: {e}"))?;
 
@@ -272,7 +350,7 @@ async fn build_swap_route(
     }
 
     let amount_in_decimal = trade_usd
-        .checked_div(surplus.price)
+        .checked_div(scaled_price)
         .map_err(|e| anyhow!("overflow calculating amount in: {e}"))?;
     let mut trade_amount_uint256 = amount_in_decimal.to_uint_floor();
     if trade_amount_uint256.is_zero() {
@@ -300,8 +378,7 @@ async fn build_swap_route(
 
     let actual_amount_decimal = Decimal256::from_atomics(trade_amount_uint256, 0)
         .map_err(|e| anyhow!("failed to convert trade amount to decimal: {e}"))?;
-    let usd_used = surplus
-        .price
+    let usd_used = scaled_price
         .checked_mul(actual_amount_decimal)
         .map_err(|e| anyhow!("overflow calculating usd used: {e}"))?;
 

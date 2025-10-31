@@ -430,6 +430,7 @@ async fn main() -> anyhow::Result<()> {
             if let Err(err) = res.error_for_status_ref() {
                 let status = err.status();
                 let text = res.text().await.unwrap_or_default();
+                tracing::error!("Request error: {:?}\nBody: {}", status, text);
                 eprintln!("Request error: {:?}\nBody: {}", status, text);
                 return Err(err.into());
             }
@@ -457,6 +458,7 @@ async fn main() -> anyhow::Result<()> {
             if let Err(err) = res.error_for_status_ref() {
                 let status = err.status();
                 let text = res.text().await.unwrap_or_default();
+                tracing::error!("Request error: {:?}\nBody: {}", status, text);
                 eprintln!("Request error: {:?}\nBody: {}", status, text);
                 return Err(err.into());
             }

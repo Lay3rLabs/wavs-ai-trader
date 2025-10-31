@@ -53,11 +53,21 @@ impl Guest for Component {
             )),
         }?;
         let chain = host::config_var("chain").ok_or("Could not get chain config var")?;
+        host::log(
+            host::LogLevel::Debug,
+            &format!("Chain configured: {}", chain),
+        );
+
         let address = CosmosAddr::new_str(
             &host::config_var("address").ok_or("Could not get address config var")?,
             None,
         )
         .map_err(|e| format!("Could not parse address: {e}"))?;
+        host::log(
+            host::LogLevel::Debug,
+            &format!("Vault address configured: {}", address),
+        );
+
         let chain_config = host::get_cosmos_chain_config(&chain)
             .ok_or(format!("Could not get chain config for {chain}"))?;
 
@@ -85,23 +95,35 @@ impl Guest for Component {
             )
             .map_err(|e| format!("Error parsing the trade strategy: {e}"))?;
 
-            generate_payload(
+            host::log(host::LogLevel::Info, "Starting payload generation...");
+
+            let result = generate_payload(
                 query_client,
                 Address::Cosmos(address),
                 trade_strategy,
                 trigger_time.nanos,
                 chain_config.chain_id,
             )
-            .await
-            .map_err(|e| e.to_string())
+            .await;
+
+            if result.is_ok() {
+                host::log(
+                    host::LogLevel::Info,
+                    "Payload generation completed successfully",
+                );
+            }
+
+            result.map_err(|e| e.to_string())
         })?;
 
-        Ok(Some(WasmResponse {
+        let response = WasmResponse {
             payload: payload
                 .to_bytes()
                 .map_err(|e| format!("Could not encode payload: {e}"))?,
             ordering: None,
-        }))
+        };
+
+        Ok(Some(response))
     }
 }
 

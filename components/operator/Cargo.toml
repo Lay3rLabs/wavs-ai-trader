@@ -24,3 +24,4 @@ cosmwasm-std = { workspace = true }
 wavs-types = { workspace = true }
 vault = { workspace = true }
 wit-bindgen = { workspace = true }
+rust_decimal = { version = "1.36", features = ["serde-float"] }
