@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Binary, Coin, Decimal256, Deps, DepsMut, Env, MessageInfo, Reply, Response,
-    StdError, StdResult,
+    to_json_binary, Binary, Decimal256, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdError,
+    StdResult, Uint256,
 };
 use cw2::set_contract_version;
 use wavs_types::contracts::cosmwasm::service_handler::{
@@ -110,38 +110,85 @@ pub fn execute(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
     match msg.id {
         REPLY_TRACKER_ID => {
-            msg.result.into_result().map_err(StdError::msg)?;
+            let msg_response = msg.result.into_result().map_err(StdError::msg)?;
 
             if let Some(trade_info) = TRADE_TRACKER.pop_front(deps.storage)? {
-                let out_balance: Coin = deps
-                    .querier
-                    .query_balance(env.contract.address.clone(), trade_info.out_denom.clone())?;
-                let in_balance: Coin = deps.querier.query_balance(
-                    env.contract.address.clone(),
-                    trade_info.in_coin.denom.clone(),
-                )?;
+                // Extract swap output information from reply attributes
+                let mut swap_out_amount: Option<Uint256> = None;
+                let mut swap_out_denom: Option<String> = None;
 
+                for event in msg_response.events {
+                    for attribute in event.attributes {
+                        match attribute.key.as_str() {
+                            "post_swap_action_amount_out" => {
+                                swap_out_amount = Some(
+                                    attribute
+                                        .value
+                                        .parse::<u128>()
+                                        .map_err(|_| {
+                                            ContractError::Std(StdError::msg(format!(
+                                                "Failed to parse amount: {}",
+                                                attribute.value
+                                            )))
+                                        })?
+                                        .into(),
+                                );
+                            }
+                            "post_swap_action_denom_out" => {
+                                swap_out_denom = Some(attribute.value);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
+                // Update vault assets using only the swap deltas
+                // Incoming asset: add only the amount received from the swap (from reply attributes)
+                if let (Some(denom), Some(amount)) = (swap_out_denom.clone(), swap_out_amount) {
+                    VAULT_ASSETS.update::<_, ContractError>(
+                        deps.storage,
+                        denom,
+                        |current_balance| -> Result<_, ContractError> {
+                            let balance = current_balance.unwrap_or_default();
+                            let new_balance = balance.checked_add(amount)?;
+                            Ok(new_balance)
+                        },
+                    )?;
+                } else {
+                    return Err(ContractError::Std(StdError::msg(
+                        "Could not get post swap action attributes",
+                    )));
+                }
+
+                // Outgoing asset: subtract the amount we sent in the swap
                 VAULT_ASSETS.update::<_, ContractError>(
                     deps.storage,
-                    trade_info.out_denom.clone(),
-                    |_| Ok(out_balance.amount),
-                )?;
-                VAULT_ASSETS.update::<_, ContractError>(
-                    deps.storage,
                     trade_info.in_coin.denom.clone(),
-                    |_| Ok(in_balance.amount),
+                    |current_balance| -> Result<_, ContractError> {
+                        let balance = current_balance.unwrap_or_default();
+                        let new_balance = balance.checked_sub(trade_info.in_coin.amount)?;
+                        Ok(new_balance)
+                    },
                 )?;
 
-                // Add trade completion event
+                // Add trade completion event with actual swap amounts
                 let mut response = Response::new().add_event(
                     cosmwasm_std::Event::new("trade_completed")
-                        .add_attribute("out_denom", &trade_info.out_denom)
-                        .add_attribute("out_balance", out_balance.amount.to_string())
                         .add_attribute("in_denom", &trade_info.in_coin.denom)
-                        .add_attribute("in_balance", trade_info.in_coin.amount.to_string()),
+                        .add_attribute("in_amount", trade_info.in_coin.amount.to_string())
+                        .add_attribute(
+                            "out_denom",
+                            swap_out_denom.unwrap_or_else(|| trade_info.out_denom.clone()),
+                        )
+                        .add_attribute(
+                            "out_amount",
+                            swap_out_amount
+                                .map(|a| a.to_string())
+                                .unwrap_or_else(|| "unknown".to_string()),
+                        ),
                 );
 
                 // Once all operations are completed, then calculate vault value again
@@ -199,7 +246,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             VaultQueryMsg::GetVaultAssetBalance { denom } => {
                 to_json_binary(&query::vault_asset_balance(deps, denom)?)
             }
-            VaultQueryMsg::GetPendingAssets {} => to_json_binary(&query::pending_assets(deps)?),
+            VaultQueryMsg::GetTotalPendingAssets {} => {
+                to_json_binary(&query::total_pending_assets(deps)?)
+            }
             VaultQueryMsg::GetPendingAssetBalance { denom } => {
                 to_json_binary(&query::pending_asset_balance(deps, denom)?)
             }

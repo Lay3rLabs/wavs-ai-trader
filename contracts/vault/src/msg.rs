@@ -62,7 +62,7 @@ pub enum VaultQueryMsg {
     #[returns(Uint256)]
     GetVaultAssetBalance { denom: String },
     #[returns(Vec<Coin>)]
-    GetPendingAssets {},
+    GetTotalPendingAssets {},
     #[returns(Uint256)]
     GetPendingAssetBalance { denom: String },
     #[returns(cosmwasm_std::Decimal256)]
@@ -88,7 +88,7 @@ pub struct MigrateMsg {}
 #[cw_serde]
 pub struct VaultState {
     pub funds: Vec<Coin>,
-    pub pending_assets: Vec<Coin>,
+    pub total_pending_assets: Vec<Coin>,
     pub prices: Vec<PriceInfo>,
     pub tvl: Decimal256,
 }

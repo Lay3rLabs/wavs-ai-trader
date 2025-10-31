@@ -2,10 +2,27 @@
 # will have compiled files and executables
 debug
 target
-builds
-!builds/deployments/vault.json
-!builds/deployments/middleware.json
+
+# Ignore everything in builds
+/builds/**
+
+# Allow these subdirectories to be visible again
+!/builds/deployments/
+!/builds/schema/
+!/builds/schema/vault/
+
+# Now unignore the specific files
+!/builds/deployments/vault.json
+!/builds/deployments/middleware.json
+!/builds/schema/vault/vault.json
+
+# Global schema ignores
+**/schema/cw_schema/**
+**/schema/raw/**
+
+# Always unignore *code-id.json files anywhere
 !**/*code-id.json
+
 artifacts
 backend/bin
 wit/
@@ -29,5 +46,3 @@ wit/
 Cargo-component.lock
 .claude/
 .env
-**/schema/cw_schema/*
-**/schema/raw/*

@@ -40,7 +40,7 @@ pub async fn test_vault_instantiation(querier: &VaultQuerier, props: VaultInstan
 
     let vault_state = querier.vault_state().await.unwrap();
     assert_eq!(vault_state.funds.len(), 0);
-    assert_eq!(vault_state.pending_assets.len(), 0);
+    assert_eq!(vault_state.total_pending_assets.len(), 0);
     assert_eq!(vault_state.prices.len(), 0);
     assert_eq!(vault_state.tvl, cosmwasm_std::Decimal256::zero());
 }

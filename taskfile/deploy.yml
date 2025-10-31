@@ -188,6 +188,8 @@ tasks:
         sh: cd "{{.REPO_ROOT}}" && task backend:get-wavs-operator-signing-key-{{index .MATCH 0}}
       SERVICE_MANAGER_ADDRESS:
         sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/middleware.json" | jq -r '.service_manager_address'
+      STAKE_REGISTRY_ADDRESS:
+        sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/middleware.json" | jq -r '.registry_address'
     cmds:
       - echo "🚀 Setting signing key on service manager {{.SERVICE_MANAGER_ADDRESS}}..."
       - |
@@ -196,20 +198,6 @@ tasks:
           --operator={{.OPERATOR}} \
           --signing-key={{.SIGNING_KEY}} \
           --weight={{.WEIGHT}}
-
-  set-operator-details-*:
-    deps: [assert-account-exists]
-    requires:
-      vars: [WEIGHT]
-    vars:
-      OPERATOR:
-        sh: cd "{{.REPO_ROOT}}" && task backend:get-wavs-operator-address-{{index .MATCH 0}}
-      SIGNING_KEY:
-        sh: cd "{{.REPO_ROOT}}" && task backend:get-wavs-operator-signing-key-{{index .MATCH 0}}
-      STAKE_REGISTRY_ADDRESS:
-        sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/middleware.json" | jq -r '.registry_address'
-    cmds:
-      - echo "🚀 Setting operator details on stake registry {{.STAKE_REGISTRY_ADDRESS}}..."
       - |
         cd packages/cli && cargo run set-operator-details \
           --stake-registry-address={{.STAKE_REGISTRY_ADDRESS}} \

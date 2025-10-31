@@ -426,6 +426,150 @@ fn test_multi_denom_deposit_zero_amount_mixed() {
 }
 
 #[test]
+fn test_pending_assets_tracking() {
+    let (mut app, vault_addr, addrs) = proper_instantiate();
+
+    // Make a pending deposit
+    let deposit_msg = ExecuteMsg::Vault(VaultExecuteMsg::Deposit {});
+    app.execute_contract(
+        addrs.user1.clone(),
+        vault_addr.clone(),
+        &deposit_msg,
+        &coins(100, DENOM_ATOM),
+    )
+    .unwrap();
+
+    // Pending assets should include the deposit
+    let pending_assets: Vec<Coin> = app
+        .wrap()
+        .query_wasm_smart(
+            &vault_addr,
+            &QueryMsg::Vault(VaultQueryMsg::GetTotalPendingAssets {}),
+        )
+        .unwrap();
+    assert_eq!(pending_assets, vec![coin(100, DENOM_ATOM)]);
+
+    let pending_atom_balance: Uint256 = app
+        .wrap()
+        .query_wasm_smart(
+            &vault_addr,
+            &QueryMsg::Vault(VaultQueryMsg::GetPendingAssetBalance {
+                denom: DENOM_ATOM.to_string(),
+            }),
+        )
+        .unwrap();
+    assert_eq!(pending_atom_balance, Uint256::from(100u128));
+
+    // Process the deposit by providing prices
+    execute_update_prices(
+        &mut app,
+        &vault_addr,
+        vec![PriceInfo {
+            denom: DENOM_ATOM.to_string(),
+            price_usd: decimal(10),
+        }],
+        None,
+    );
+
+    // Pending assets should now be empty and balance zero
+    let pending_assets_after: Vec<Coin> = app
+        .wrap()
+        .query_wasm_smart(
+            &vault_addr,
+            &QueryMsg::Vault(VaultQueryMsg::GetTotalPendingAssets {}),
+        )
+        .unwrap();
+    assert!(pending_assets_after.is_empty());
+
+    let pending_atom_balance_after: Uint256 = app
+        .wrap()
+        .query_wasm_smart(
+            &vault_addr,
+            &QueryMsg::Vault(VaultQueryMsg::GetPendingAssetBalance {
+                denom: DENOM_ATOM.to_string(),
+            }),
+        )
+        .unwrap();
+    assert_eq!(pending_atom_balance_after, Uint256::zero());
+}
+
+#[test]
+fn test_pending_assets_partial_processing() {
+    let (mut app, vault_addr, addrs) = proper_instantiate();
+
+    let deposit_msg = ExecuteMsg::Vault(VaultExecuteMsg::Deposit {});
+
+    app.execute_contract(
+        addrs.user1.clone(),
+        vault_addr.clone(),
+        &deposit_msg,
+        &coins(100, DENOM_ATOM),
+    )
+    .unwrap();
+
+    app.execute_contract(
+        addrs.user2.clone(),
+        vault_addr.clone(),
+        &deposit_msg,
+        &coins(50, DENOM_OSMO),
+    )
+    .unwrap();
+
+    let pending_assets: Vec<Coin> = app
+        .wrap()
+        .query_wasm_smart(
+            &vault_addr,
+            &QueryMsg::Vault(VaultQueryMsg::GetTotalPendingAssets {}),
+        )
+        .unwrap();
+    assert_eq!(
+        pending_assets,
+        vec![coin(100, DENOM_ATOM), coin(50, DENOM_OSMO)]
+    );
+
+    // Provide price for atom only
+    execute_update_prices(
+        &mut app,
+        &vault_addr,
+        vec![PriceInfo {
+            denom: DENOM_ATOM.to_string(),
+            price_usd: decimal(10),
+        }],
+        None,
+    );
+
+    // Only osmo should remain pending
+    let pending_assets_after_first: Vec<Coin> = app
+        .wrap()
+        .query_wasm_smart(
+            &vault_addr,
+            &QueryMsg::Vault(VaultQueryMsg::GetTotalPendingAssets {}),
+        )
+        .unwrap();
+    assert_eq!(pending_assets_after_first, vec![coin(50, DENOM_OSMO)]);
+
+    // Final price update clears remaining pending assets
+    execute_update_prices(
+        &mut app,
+        &vault_addr,
+        vec![PriceInfo {
+            denom: DENOM_OSMO.to_string(),
+            price_usd: decimal(5),
+        }],
+        None,
+    );
+
+    let pending_assets_after_second: Vec<Coin> = app
+        .wrap()
+        .query_wasm_smart(
+            &vault_addr,
+            &QueryMsg::Vault(VaultQueryMsg::GetTotalPendingAssets {}),
+        )
+        .unwrap();
+    assert!(pending_assets_after_second.is_empty());
+}
+
+#[test]
 fn test_multi_denom_deposit_no_funds() {
     let (mut app, vault_addr, addrs) = proper_instantiate();
 

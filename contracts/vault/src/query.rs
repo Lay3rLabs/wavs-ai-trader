@@ -3,7 +3,7 @@ use cw_storage_plus::Bound;
 
 use crate::{
     state::{
-        DEPOSIT_REQUESTS, PENDING_ASSETS, PRICES, TOTAL_SHARES, VAULT_ASSETS,
+        DEPOSIT_REQUESTS, PRICES, TOTAL_PENDING_ASSETS, TOTAL_SHARES, VAULT_ASSETS,
         VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
     },
     DepositRequest, PriceInfo, VaultState,
@@ -57,8 +57,8 @@ pub fn vault_asset_balance(deps: Deps, denom: String) -> StdResult<Uint256> {
         .or(Ok(Uint256::zero()))
 }
 
-pub fn pending_assets(deps: Deps) -> StdResult<Vec<Coin>> {
-    PENDING_ASSETS
+pub fn total_pending_assets(deps: Deps) -> StdResult<Vec<Coin>> {
+    TOTAL_PENDING_ASSETS
         .range(deps.storage, None, None, Order::Ascending)
         .map(|item| {
             let (denom, amount) = item?;
@@ -68,7 +68,7 @@ pub fn pending_assets(deps: Deps) -> StdResult<Vec<Coin>> {
 }
 
 pub fn pending_asset_balance(deps: Deps, denom: String) -> StdResult<Uint256> {
-    PENDING_ASSETS
+    TOTAL_PENDING_ASSETS
         .load(deps.storage, denom)
         .or(Ok(Uint256::zero()))
 }
@@ -93,7 +93,7 @@ pub fn prices(deps: Deps) -> StdResult<Vec<PriceInfo>> {
 pub fn vault_state(deps: Deps) -> StdResult<VaultState> {
     Ok(VaultState {
         funds: vault_assets(deps)?,
-        pending_assets: pending_assets(deps)?,
+        total_pending_assets: total_pending_assets(deps)?,
         prices: prices(deps)?,
         tvl: vault_value(deps)?,
     })

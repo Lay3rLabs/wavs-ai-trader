@@ -53,7 +53,7 @@ pub async fn generate_payload(
 
     let VaultState {
         funds,
-        pending_assets: _,
+        total_pending_assets: _,
         prices,
         tvl,
     } = vault_state;

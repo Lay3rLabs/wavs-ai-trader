@@ -106,7 +106,7 @@ impl VaultQuerier {
     /// Query all pending assets
     pub async fn pending_assets(&self) -> Result<Vec<Coin>> {
         let resp: Vec<Coin> = self
-            .query(&QueryMsg::Vault(VaultQueryMsg::GetPendingAssets {}))
+            .query(&QueryMsg::Vault(VaultQueryMsg::GetTotalPendingAssets {}))
             .await?;
         Ok(resp)
     }

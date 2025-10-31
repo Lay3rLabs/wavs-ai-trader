@@ -403,6 +403,19 @@
             "additionalProperties": false
           },
           {
+            "type": "object",
+            "required": [
+              "manual_trigger"
+            ],
+            "properties": {
+              "manual_trigger": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          {
             "description": "Update the contract's ownership. The `action` to be provided can be either to propose transferring ownership to an account, accept a pending ownership transfer, or renounce the ownership permanently.",
             "type": "object",
             "required": [
@@ -618,10 +631,10 @@
           {
             "type": "object",
             "required": [
-              "get_pending_assets"
+              "get_total_pending_assets"
             ],
             "properties": {
-              "get_pending_assets": {
+              "get_total_pending_assets": {
                 "type": "object",
                 "additionalProperties": false
               }
@@ -820,36 +833,6 @@
       "description": "An implementation of u256 that is using strings for JSON encoding/decoding, such that the full u256 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `new` to create instances out of u128, `from` for other primitive uint types or `from_be_bytes` to provide big endian bytes:\n\n``` # use cosmwasm_std::Uint256; let a = Uint256::new(258u128); let b = Uint256::from(258u16); let c = Uint256::from_be_bytes([ 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 1u8, 2u8, ]); assert_eq!(a, b); assert_eq!(a, c); ```",
       "type": "string"
     },
-    "get_pending_assets": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Array_of_Coin",
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/Coin"
-      },
-      "definitions": {
-        "Coin": {
-          "type": "object",
-          "required": [
-            "amount",
-            "denom"
-          ],
-          "properties": {
-            "amount": {
-              "$ref": "#/definitions/Uint256"
-            },
-            "denom": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
-        },
-        "Uint256": {
-          "description": "An implementation of u256 that is using strings for JSON encoding/decoding, such that the full u256 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `new` to create instances out of u128, `from` for other primitive uint types or `from_be_bytes` to provide big endian bytes:\n\n``` # use cosmwasm_std::Uint256; let a = Uint256::new(258u128); let b = Uint256::from(258u16); let c = Uint256::from_be_bytes([ 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 1u8, 2u8, ]); assert_eq!(a, b); assert_eq!(a, c); ```",
-          "type": "string"
-        }
-      }
-    },
     "get_price": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Decimal256",
@@ -883,6 +866,36 @@
             }
           },
           "additionalProperties": false
+        }
+      }
+    },
+    "get_total_pending_assets": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Array_of_Coin",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Coin"
+      },
+      "definitions": {
+        "Coin": {
+          "type": "object",
+          "required": [
+            "amount",
+            "denom"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/Uint256"
+            },
+            "denom": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "Uint256": {
+          "description": "An implementation of u256 that is using strings for JSON encoding/decoding, such that the full u256 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `new` to create instances out of u128, `from` for other primitive uint types or `from_be_bytes` to provide big endian bytes:\n\n``` # use cosmwasm_std::Uint256; let a = Uint256::new(258u128); let b = Uint256::from(258u16); let c = Uint256::from_be_bytes([ 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 1u8, 2u8, ]); assert_eq!(a, b); assert_eq!(a, c); ```",
+          "type": "string"
         }
       }
     },
@@ -934,8 +947,8 @@
       "type": "object",
       "required": [
         "funds",
-        "pending_assets",
         "prices",
+        "total_pending_assets",
         "tvl"
       ],
       "properties": {
@@ -945,16 +958,16 @@
             "$ref": "#/definitions/Coin"
           }
         },
-        "pending_assets": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Coin"
-          }
-        },
         "prices": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/PriceInfo"
+          }
+        },
+        "total_pending_assets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
           }
         },
         "tvl": {

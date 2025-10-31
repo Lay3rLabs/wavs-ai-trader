@@ -15,8 +15,9 @@ use crate::skip_entry::{
     SwapExactAssetIn, SwapRoute,
 };
 use crate::state::{
-    self, TradeInfo, DEPOSIT_ID_COUNTER, DEPOSIT_REQUESTS, PRICES, SKIP_ENTRY_POINT, TOTAL_SHARES,
-    TRADE_TRACKER, USER_SHARES, VAULT_ASSETS, VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
+    self, TradeInfo, DEPOSIT_ID_COUNTER, DEPOSIT_REQUESTS, PRICES, SKIP_ENTRY_POINT,
+    TOTAL_PENDING_ASSETS, TOTAL_SHARES, TRADE_TRACKER, USER_SHARES, VAULT_ASSETS,
+    VAULT_VALUE_DEPOSITED, WHITELISTED_DENOMS,
 };
 use crate::{DepositRequest, DepositState, Payload, REPLY_TRACKER_ID};
 
@@ -59,6 +60,20 @@ pub fn deposit(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, 
     };
 
     DEPOSIT_REQUESTS.save(deps.storage, deposit_id, &deposit_request)?;
+
+    // Track totals while funds wait for pricing
+    for coin in &valid_coins {
+        let amount: Uint256 = coin.amount;
+        TOTAL_PENDING_ASSETS.update(
+            deps.storage,
+            coin.denom.clone(),
+            |balance| -> Result<_, ContractError> {
+                let current = balance.unwrap_or_default();
+                let updated = current.checked_add(amount)?;
+                Ok(updated)
+            },
+        )?;
+    }
 
     // Create a single deposit event with summary info
     let mut deposit_event = cosmwasm_std::Event::new("deposit")
@@ -525,6 +540,20 @@ fn process_pending_deposits(
                         Ok(updated_balance)
                     },
                 )?;
+
+                let pending_amount: Uint256 = coin.amount;
+                let new_pending_balance = TOTAL_PENDING_ASSETS.update(
+                    storage,
+                    coin.denom.clone(),
+                    |balance| -> Result<_, ContractError> {
+                        let current_balance = balance.unwrap_or_default();
+                        let updated_balance = current_balance.checked_sub(pending_amount)?;
+                        Ok(updated_balance)
+                    },
+                )?;
+                if new_pending_balance.is_zero() {
+                    TOTAL_PENDING_ASSETS.remove(storage, coin.denom.clone());
+                }
             }
 
             // Update total shares for next calculation
