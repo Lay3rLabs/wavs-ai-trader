@@ -69,11 +69,10 @@ tasks:
             sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/service-cid.json" | jq -r '.service.manager.cosmos.address'
 
   all-operator:
+    requires:
+      vars: [ADDR]
     cmds:
       - task: operator-add-service
-        vars:
-          ADDR:
-            sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/service-cid.json" | jq -r '.service.manager.cosmos.address'
 
   set-service:
     deps:
