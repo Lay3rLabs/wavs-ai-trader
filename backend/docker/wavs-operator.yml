@@ -22,3 +22,36 @@ services:
     volumes:
       - "${COMPOSE_WAVS_HOME:-}:/wavs-home"
     network_mode: "host"
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    stop_signal: SIGKILL
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: "11.0.0"
+      HIP_VISIBLE_DEVICES: "0"
+    # devices:
+    #   - "/dev/kfd"
+    #   - "/dev/dri"
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - SYS_PTRACE
+    ipc: host
+    group_add:
+      - video
+    volumes:
+      - ./.docker/data_ollama:/root/.ollama
+      - ./.docker/ollama.entrypoint.sh:/entrypoint.sh
+    network_mode: "host"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # command: serve
+    # Auto-pull models on startup
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]    

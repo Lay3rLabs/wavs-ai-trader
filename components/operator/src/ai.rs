@@ -87,12 +87,12 @@ fn normalize_monkey(advice: BTreeMap<String, u64>, tvl: Decimal256) -> BTreeMap<
 
 // JSON serializable version of LlmOptions
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct LlmOptions {
-    temperature: f32,
-    top_p: f32,
-    seed: u32,
-    max_tokens: Option<u32>,
-    context_window: Option<u32>,
+pub struct LlmOptions {
+    pub temperature: f32,
+    pub top_p: f32,
+    pub seed: u32,
+    pub max_tokens: Option<u32>,
+    pub context_window: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
