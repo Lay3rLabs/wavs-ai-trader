@@ -16,6 +16,7 @@ tasks:
 
   setup:
     cmds:
+      - git checkout remote
       - git pull
       - |
         sudo apt-get update
