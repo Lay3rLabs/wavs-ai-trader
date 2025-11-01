@@ -57,7 +57,20 @@ pub async fn monkey_advisor(denoms: Vec<String>, tvl: Decimal256, seed: u32) -> 
 }
 
 fn parse_response(resp: &str, denoms: &[String]) -> Result<BTreeMap<String, u64>, String> {
-    todo!();
+    let mut matches = BTreeMap::new();
+
+    for line in resp.split_terminator("\n") {
+        let items = line.trim().split(' ').collect::<Vec<&str>>();
+        if items.len() == 2 {
+            if let Ok(v) = u64::from_str_radix(items[1], 10) {
+                matches.insert(items[0].to_string(), v);
+            }
+        }
+    }
+    if matches.len() != denoms.len() {
+        return Err(format!("Only found {} of {} tokens in response", matches.len(), denoms.len()))
+    }
+    Ok(matches)
 }
 
 fn normalize_monkey(advice: BTreeMap<String, u64>, tvl: Decimal256) -> BTreeMap<String, Decimal256> {
@@ -71,7 +84,6 @@ fn normalize_monkey(advice: BTreeMap<String, u64>, tvl: Decimal256) -> BTreeMap<
     targets
 
 }
-
 
 // JSON serializable version of LlmOptions
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -458,22 +470,32 @@ impl LlmClient {
 
 #[cfg(test)]
 mod test {
-    use super::parse_response;
+    use super::*;
 
     #[test]
     fn test_parsing() {
         let response = 
 r#"OOH OOH AH AH! THE MONKEY'S GOT A FEW CHOICE WORDS FOR YA, BUT I'LL TRY TO KEEP IT CLEAN AND JUST THROW SOME DARTS!
 
-FOO 14
+FOO 17
 WINNER 98
-SUCK 29
+SUCK 35
 "#;
         let denoms = vec!["FOO".to_string(), "WINNER".to_string(), "SUCK".to_string()];
-        parsed = parse_response(response, &denoms);
+        let parsed = parse_response(response, &denoms).unwrap();
         assert_eq!(parsed.len(), 3);
-        assert_eq!(*parsed.get("FOO"), 14);
-        assert_eq!(*parsed.get("WINNER"), 98);
-        assert_eq!(*parsed.get("SUCK"), 29);
+        assert_eq!(*parsed.get("FOO").unwrap(), 17);
+        assert_eq!(*parsed.get("WINNER").unwrap(), 98);
+        assert_eq!(*parsed.get("SUCK").unwrap(), 35);
+
+
+        let normie = normalize_monkey(parsed, Decimal256::from_atomics(15000u128, 0).unwrap());
+        assert_eq!(normie.len(), 3);
+        // assert_eq!(*normie.get("FOO").unwrap(), Decimal256::from_atomics(1700u128, 0).unwrap());
+        // assert_eq!(*normie.get("WINNER").unwrap(), Decimal256::from_atomics(9800u128, 0).unwrap());
+        // assert_eq!(*normie.get("SUCK").unwrap(), Decimal256::from_atomics(3500u128, 0).unwrap());
+        println!("{}", *normie.get("FOO").unwrap());
+        println!("{}", *normie.get("WINNER").unwrap());
+        println!("{}", *normie.get("SUCK").unwrap());
     }
 }
