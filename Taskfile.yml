@@ -16,6 +16,7 @@ tasks:
 
   setup:
     cmds:
+      - git pull
       - git checkout remote
       - git pull
       - |
