@@ -22,7 +22,7 @@ tasks:
       - |
         sudo groupadd docker || true
         sudo usermod -aG docker $USER
-        newgrp docker
+        newgrp docker || true
       - |
         sudo apt update
         sudo apt install build-essential
