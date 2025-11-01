@@ -19,7 +19,7 @@ vars:
       "ibc/2CB87BCE0937B1D1DFCEE79BE4501AAF3C265E923509AEAC410AD85D27F35130",
     ]
   # Uncomment this if running locally, because service manager is set to 2/3 quorum
-  OPERATORS: 3
+  # OPERATORS: 3
   # Remote deployment configuration
   AGGREGATOR_HOST: "35.158.118.133"
 
