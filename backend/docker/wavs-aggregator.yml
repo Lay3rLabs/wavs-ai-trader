@@ -11,6 +11,8 @@ services:
         "wavs-aggregator",
         "--home",
         "/wavs-home",
+        "--host",
+        "0.0.0.0",
         "--port",
         "${COMPOSE_WAVS_AGGREGATOR_PORT:-}",
       ]
