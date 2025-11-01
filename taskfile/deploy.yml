@@ -21,7 +21,7 @@ vars:
   # Uncomment this if running locally, because service manager is set to 2/3 quorum
   # OPERATORS: 3
   # Remote deployment configuration
-  AGGREGATOR_HOST: "35.158.118.133"
+  AGGREGATOR_HOST: "http://35.158.118.133"
 
 tasks:
   clean:
@@ -132,10 +132,12 @@ tasks:
     cmds:
       - task: upload-component
         vars:
+          HOST: "{{.HOST}}"
           COMPONENT: operator
           FILENAME: operator-cid.json
       - task: upload-component
         vars:
+          HOST: "{{.HOST}}"
           COMPONENT: aggregator
           FILENAME: aggregator-cid.json
 
@@ -295,8 +297,9 @@ tasks:
     requires:
       vars: [COMPONENT, FILENAME]
     vars:
-      IPFS_API_URL: "http://127.0.0.1:{{.IPFS_API_PORT}}"
-      IPFS_GATEWAY_URL: "http://127.0.0.1:{{.IPFS_GATEWAY_PORT}}"
+      HOST: '{{.HOST | default "http://127.0.0.1:"}}'
+      IPFS_API_URL: "{{.HOST}}{{.IPFS_API_PORT}}"
+      IPFS_GATEWAY_URL: "{{.HOST}}{{.IPFS_GATEWAY_PORT}}"
     cmds:
       - echo "🚀 Uploading component {{.COMPONENT}} to IPFS..."
       - cd packages/cli && cargo run upload-component --kind {{.COMPONENT}} --output-filename={{.FILENAME}} --ipfs-api-url {{.IPFS_API_URL}} --ipfs-gateway-url {{.IPFS_GATEWAY_URL}}
