@@ -40,6 +40,10 @@ tasks:
       - cargo install wkg
       - task components:fetch-wit-all
       - task components:build-all
+      - |
+        sudo groupadd docker || true
+        sudo usermod -aG docker $USER
+        newgrp docker || true
 
   lint:
     desc: "Run code formatting and linting checks"
