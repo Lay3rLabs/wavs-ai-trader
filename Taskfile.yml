@@ -38,6 +38,7 @@ tasks:
       - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
       - rustup target add wasm32-wasip2
       - cargo install wkg
+      - wkg config --default-registry wa.dev
       - task components:fetch-wit-all
       - task components:build-all
       - |
