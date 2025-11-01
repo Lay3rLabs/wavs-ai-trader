@@ -17,6 +17,8 @@ tasks:
   setup:
     cmds:
       - git pull
+      - git checkout remote
+      - git pull
       - |
         sudo apt-get update
         sudo apt-get install ca-certificates curl
