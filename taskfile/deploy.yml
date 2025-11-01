@@ -73,6 +73,8 @@ tasks:
       vars: [ADDR]
     cmds:
       - task: operator-add-service
+        vars:
+          ADDR: "{{.ADDR}}"
 
   set-service:
     deps:
