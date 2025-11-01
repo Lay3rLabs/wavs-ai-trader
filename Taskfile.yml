@@ -39,6 +39,7 @@ tasks:
       - rustup target add wasm32-wasip2
       - cargo install wkg
       - task components:fetch-wit-all
+      - task components:build-all
 
   lint:
     desc: "Run code formatting and linting checks"
