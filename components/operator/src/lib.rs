@@ -50,6 +50,8 @@ impl Guest for Component {
                 })
             }
             TriggerData::Cron(TriggerDataCron { trigger_time }) => {
+                // NOTE: this probably not needed anymore after https://github.com/Lay3rLabs/WAVS/pull/1068
+                // leaving as is to ensure nothing breaks, since this is confirmed working
                 let normalized_nanos = (trigger_time.nanos / NANOS_PER_MINUTE) * NANOS_PER_MINUTE;
                 Ok(Timestamp {
                     nanos: normalized_nanos,
