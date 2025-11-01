@@ -76,7 +76,10 @@ tasks:
             sh: cat "{{.DEPLOYMENTS_ARTIFACTS_PATH}}/service-cid.json" | jq -r '.service.manager.cosmos.address'
 
   set-service:
-    deps: [all-upload-components]
+    deps:
+      - task: all-upload-components
+        vars:
+          HOST: "{{.HOST}}"
     cmds:
       - task: service-upload
         vars:
