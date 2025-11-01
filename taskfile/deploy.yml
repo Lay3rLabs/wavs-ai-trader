@@ -21,7 +21,7 @@ vars:
   # Uncomment this if running locally, because service manager is set to 2/3 quorum
   # OPERATORS: 3
   # Remote deployment configuration
-  AGGREGATOR_HOST: "http://35.158.118.133"
+  AGGREGATOR_HOST: "http://35.158.118.133:"
 
 tasks:
   clean:
