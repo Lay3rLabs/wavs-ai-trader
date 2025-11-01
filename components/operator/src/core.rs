@@ -11,6 +11,7 @@ use vault::{
     Payload, QueryMsg, SwapOperation as VaultSwapOperation, SwapRoute, VaultQueryMsg, VaultState,
 };
 
+use crate::ai::monkey_advisor;
 use crate::host;
 use crate::{
     coingecko::{get_neutron_asset, CoinGeckoApiClient},
@@ -70,7 +71,12 @@ pub async fn generate_payload(
     }
 
     let allocation_targets = match &trade_strategy {
-        TradeStrategy::AI => unimplemented!(),
+        TradeStrategy::AI => {
+            let denoms: Vec<_> = prices.iter().map(|p| p.denom.clone()).collect();
+            // Monkey advisor will pick some allocations
+            let seed = (timestamp % (u32::MAX as u64)) as u32;
+            monkey_advisor(denoms, tvl, seed).await.map_err(anyhow::Error::msg).context("LLM Query")?
+        } 
         TradeStrategy::Fixed(map) => {
             let mut targets = BTreeMap::new();
             for (denom, allocation) in map {
