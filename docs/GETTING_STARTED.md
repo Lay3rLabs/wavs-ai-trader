@@ -19,6 +19,14 @@ cp .env.example .env
 
 Edit the `.env` file and set the required fields according to your configuration.
 
+Then build all the components
+
+```bash
+task components:fetch-wit-all
+task components:build-all
+task contracts:build-all
+```
+
 ## 2. Start Backend Services
 
 Start all the backend services:

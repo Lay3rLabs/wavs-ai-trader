@@ -3,6 +3,7 @@ wit_bindgen::generate!({
     generate_all,
 });
 
+mod ai;
 mod coingecko;
 mod core;
 mod skip;
